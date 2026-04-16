@@ -1,0 +1,104 @@
+package env
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
+
+type LookupFunc func(key string) (string, bool)
+
+type Helper struct {
+	lookup LookupFunc
+	IsDev  bool
+	IsProd bool
+}
+
+func NewHelper(lookup LookupFunc) *Helper {
+	raw, ok := lookup("ENV")
+
+	if !ok {
+		fmt.Fprintf(os.Stderr, "FATAL: ENV variable required ([dev]elopment/[prod]uction)\n")
+		os.Exit(1)
+	}
+
+	mode := strings.ToLower(raw)
+	isDev := mode == "dev" || mode == "development"
+	isProd := mode == "prod" || mode == "production"
+
+	if !isProd && !isDev {
+		fmt.Fprintf(os.Stderr, "FATAL: ENV.Env must be: [dev]elopment/[prod]uction, got '%s'", mode)
+		os.Exit(1)
+	}
+
+	return &Helper{
+		lookup: lookup,
+		IsDev:  isDev,
+		IsProd: isProd,
+	}
+}
+
+func (h *Helper) GetString(key string, fallback string) string {
+	val, ok := h.lookup(key)
+
+	if !ok {
+		return fallback
+	}
+
+	return val
+}
+
+func (h *Helper) GetStringRequired(key string) string {
+	val, ok := h.lookup(key)
+
+	if !ok {
+		panic(fmt.Sprintf("FATAL: %s is required", key))
+	}
+
+	return val
+}
+
+func (h *Helper) GetInt(key string, fallback int) int {
+	s := h.GetString(key, strconv.Itoa(fallback))
+
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		panic(fmt.Sprintf("FATAL: %s must be an integer, got %q", key, s))
+	}
+
+	return i
+}
+
+func (h *Helper) GetIntRequired(key string) int {
+	s := h.GetStringRequired(key)
+
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		panic(fmt.Sprintf("FATAL: %s must be an integer, got %q", key, s))
+	}
+
+	return i
+}
+
+func (h *Helper) GetBool(key string, fallback bool) bool {
+	s := h.GetString(key, strconv.FormatBool(fallback))
+
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		panic(fmt.Sprintf("FATAL: %s must be a boolean, got %q", key, s))
+	}
+
+	return b
+}
+
+func (h *Helper) GetBoolRequired(key string) bool {
+	s := h.GetStringRequired(key)
+
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		panic(fmt.Sprintf("FATAL: %s must be a boolean, got %q", key, s))
+	}
+
+	return b
+}
