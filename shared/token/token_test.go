@@ -38,10 +38,12 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				t.Helper()
 
 				signer := NewSigner(validPrivateKey, "raggy-test")
-				token, err := signer.Generate(jwt.MapClaims{
-					"sub": "user-123",
-					"iat": issuedAt.Unix(),
-					"exp": expiresAt.Unix(),
+				token, err := signer.Generate(UserClaims{
+					UserID: "user-123",
+					RegisteredClaims: jwt.RegisteredClaims{
+						IssuedAt:  jwt.NewNumericDate(issuedAt),
+						ExpiresAt: jwt.NewNumericDate(expiresAt),
+					},
 				})
 				if err != nil {
 					t.Fatalf("Generate() error = %v", err)
@@ -76,8 +78,8 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				t.Helper()
 
 				signer := NewSigner(validPrivateKey, "raggy-test")
-				token, err := signer.Generate(jwt.MapClaims{
-					"sub": "user-123",
+				token, err := signer.Generate(UserClaims{
+					UserID: "user-123",
 				})
 				if err != nil {
 					t.Fatalf("Generate() error = %v", err)
@@ -164,9 +166,11 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				t.Helper()
 
 				signer := NewSigner(validPrivateKey, "raggy-test")
-				token, err := signer.Generate(jwt.MapClaims{
-					"sub": "user-123",
-					"exp": issuedAt.Add(-1 * time.Minute).Unix(),
+				token, err := signer.Generate(UserClaims{
+					UserID: "user-123",
+					RegisteredClaims: jwt.RegisteredClaims{
+						ExpiresAt: jwt.NewNumericDate(issuedAt.Add(-1 * time.Minute)),
+					},
 				})
 				if err != nil {
 					t.Fatalf("Generate() error = %v", err)
