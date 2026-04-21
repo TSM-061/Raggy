@@ -19,6 +19,10 @@ func NewSigner(privKey ed25519.PrivateKey, iss string) *Signer {
 }
 
 func (s *Signer) Generate(claims jwt.MapClaims) (string, error) {
+	if s.issuer != "" {
+		claims["iss"] = s.issuer
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
 	return token.SignedString(s.privateKey)
 }

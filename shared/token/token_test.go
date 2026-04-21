@@ -40,7 +40,6 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				signer := NewSigner(validPrivateKey, "raggy-test")
 				token, err := signer.Generate(jwt.MapClaims{
 					"sub": "user-123",
-					"iss": "raggy-test",
 					"iat": issuedAt.Unix(),
 					"exp": expiresAt.Unix(),
 				})
