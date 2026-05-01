@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
 
 const helperProcessEnv = "GO_HELPER_PROCESS"
@@ -140,6 +141,10 @@ func TestRequiredGetters_PanicWhenKeyMissing(t *testing.T) {
 	mustPanic(t, func() {
 		h.GetBoolRequired("MISSING_BOOL")
 	})
+
+	mustPanic(t, func() {
+		h.GetDurationRequired("MISSING_DURATION")
+	})
 }
 
 func TestFallbackGetters_ReturnFallbackWhenKeyMissing(t *testing.T) {
@@ -165,6 +170,13 @@ func TestFallbackGetters_ReturnFallbackWhenKeyMissing(t *testing.T) {
 			t.Fatalf("expected fallback bool true, got %t", got)
 		}
 	})
+
+	mustNotPanic(t, func() {
+		got := h.GetDuration("MISSING_DURATION", "15m")
+		if got != 15*time.Minute {
+			t.Fatalf("expected fallback duration 15m, got %s", got)
+		}
+	})
 }
 
 func TestGetters_ReturnActualValuesWhenPresent(t *testing.T) {
@@ -174,6 +186,7 @@ func TestGetters_ReturnActualValuesWhenPresent(t *testing.T) {
 		"INT_VALUE":        "123",
 		"BOOL_VALUE_TRUE":  "true",
 		"BOOL_VALUE_FALSE": "false",
+		"DURATION_VALUE":   "15m",
 	}))
 
 	mustNotPanic(t, func() {
@@ -217,6 +230,20 @@ func TestGetters_ReturnActualValuesWhenPresent(t *testing.T) {
 			t.Fatalf("expected configured required bool false, got %t", got)
 		}
 	})
+
+	mustNotPanic(t, func() {
+		got := h.GetDuration("DURATION_VALUE", "1s")
+		if got != 15*time.Minute {
+			t.Fatalf("expected configured duration 15m, got %s", got)
+		}
+	})
+
+	mustNotPanic(t, func() {
+		got := h.GetDurationRequired("DURATION_VALUE")
+		if got != 15*time.Minute {
+			t.Fatalf("expected configured required duration 15m, got %s", got)
+		}
+	})
 }
 
 func TestIntGetters_PanicOnInvalidValue(t *testing.T) {
@@ -246,5 +273,20 @@ func TestBoolGetters_PanicOnInvalidValue(t *testing.T) {
 
 	mustPanic(t, func() {
 		h.GetBoolRequired("BOOL_VALUE")
+	})
+}
+
+func TestDurationGetters_PanicOnInvalidValue(t *testing.T) {
+	h := NewHelper(mapLookup(map[string]string{
+		"ENV":            "dev",
+		"DURATION_VALUE": "not-a-duration",
+	}))
+
+	mustPanic(t, func() {
+		h.GetDuration("DURATION_VALUE", "1m")
+	})
+
+	mustPanic(t, func() {
+		h.GetDurationRequired("DURATION_VALUE")
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type LookupFunc func(key string) (string, bool)
@@ -101,4 +102,26 @@ func (h *Helper) GetBoolRequired(key string) bool {
 	}
 
 	return b
+}
+
+func (h *Helper) GetDuration(key string, fallback string) time.Duration {
+	s := h.GetString(key, fallback)
+
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		panic(fmt.Sprintf("FATAL: %s must be a duration, got %q", key, s))
+	}
+
+	return d
+}
+
+func (h *Helper) GetDurationRequired(key string) time.Duration {
+	s := h.GetStringRequired(key)
+
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		panic(fmt.Sprintf("FATAL: %s must be a duration, got %q", key, s))
+	}
+
+	return d
 }
