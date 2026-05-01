@@ -1,4 +1,4 @@
-package token
+package accesstoken
 
 import (
 	"crypto/ed25519"
