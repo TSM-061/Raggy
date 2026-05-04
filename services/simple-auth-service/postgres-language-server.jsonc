@@ -1,0 +1,15 @@
+{
+  "db": {
+    "host": "localhost",
+    "port": 5432,
+    "username": "postgres",
+    "password": "auth_password",
+    "database": "postgres",
+    "connTimeoutSecs": 10,
+    "allowStatementExecutionsAgainst": [
+      "public",
+      "testing"
+    ],
+    "disableConnection": false
+  }
+}
