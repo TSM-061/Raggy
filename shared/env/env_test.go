@@ -78,14 +78,14 @@ func runNewAndCaptureExit(t *testing.T, testName string, envValue string, setEnv
 	return stderr.String(), exitErr.ExitCode()
 }
 
-func TestNew_ExitsWhenEnvMissing(t *testing.T) {
-	stderr, exitCode := runNewAndCaptureExit(t, "TestNew_ExitsWhenEnvMissing", "", false)
-	if exitCode == 0 {
-		t.Fatal("expected non-zero exit code")
-	}
+func TestNew_DefaultsToProductionWhenEnvMissing(t *testing.T) {
+	h := NewHelper(mapLookup(map[string]string{}))
 
-	if !strings.Contains(stderr, "FATAL: ENV variable required") {
-		t.Fatalf("unexpected stderr output: %q", stderr)
+	if h.IsDev {
+		t.Fatalf("expected IsDev=false, got %t", h.IsDev)
+	}
+	if !h.IsProd {
+		t.Fatalf("expected IsProd=true, got %t", h.IsProd)
 	}
 }
 

@@ -18,13 +18,12 @@ type Helper struct {
 
 func NewHelper(lookup LookupFunc) *Helper {
 	raw, ok := lookup("ENV")
-
-	if !ok {
-		fmt.Fprintf(os.Stderr, "FATAL: ENV variable required ([dev]elopment/[prod]uction)\n")
-		os.Exit(1)
+	
+	mode := "production"
+	if ok {
+		mode = strings.ToLower(raw)
 	}
-
-	mode := strings.ToLower(raw)
+	
 	isDev := mode == "dev" || mode == "development"
 	isProd := mode == "prod" || mode == "production"
 
