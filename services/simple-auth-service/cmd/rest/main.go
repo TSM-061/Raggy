@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,31 +9,33 @@ import (
 
 	"github.com/TSM-061/Raggy/shared/env"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/config"
+	"github.com/TSM-061/Raggy/simple-auth-service/internal/web"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
-	helper := env.NewHelper(os.LookupEnv)
-	config := config.LoadConfig(helper)
+	ctx := context.Background()
 
-	mux := http.NewServeMux()
+	env := env.NewHelper(os.LookupEnv)
+	cfg := config.LoadConfig(env)
 
-	mux.HandleFunc("/api/auth/hello", handleHello)
+	pool, err := pgxpool.New(ctx, cfg.DbConnectionString)
+	if err != nil {
+		panic("failed to open database connection")
+	}
+	defer pool.Close()
 
-	log.Printf("Simple Auth Service listening on :%d", config.Port)
-
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), mux))
-}
-
-func handleHello(w http.ResponseWriter, r *http.Request) {
-	// Get the "name" from the URL query parameters
-	name := r.URL.Query().Get("name")
-	if name == "" {
-		name = "World"
+	server, err := web.NewServer(cfg, pool)
+	if err != nil {
+		panic(err)
 	}
 
-	// Set the content type to plain text
-	w.Header().Set("Content-Type", "text/plain")
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/auth/signin", server.HandleSignin)
+	mux.HandleFunc("POST /api/auth/refresh", server.HandleRefresh)
+	mux.HandleFunc("POST /api/auth/signout", server.HandleSignout)
 
-	// Write the response
-	fmt.Fprintf(w, "Hello, %s! The Auth Service is alive.", name)
+	log.Printf("Simple Auth Service listening on :%d", cfg.Port)
+	port := fmt.Sprintf(":%d", cfg.Port)
+	log.Fatal(http.ListenAndServe(port, mux))
 }
