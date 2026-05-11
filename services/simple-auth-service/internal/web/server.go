@@ -8,14 +8,16 @@ import (
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/services"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/session"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/user"
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Server struct {
-	config   *config.Config
-	users    user.Repo
-	sessions session.Repo
-	auth     *services.AuthService
+	config    *config.Config
+	Users     user.Repo
+	Sessions  session.Repo
+	Auth      *services.AuthService
+	Validator *validator.Validate
 }
 
 func NewServer(
@@ -31,7 +33,7 @@ func NewServer(
 	sessionManager := session.NewManager(config.RefreshTokenSecret, sessions)
 
 	hasher := password.NewArgon2Hasher(
-		config.PasswordPepper,
+		config.PasswordSecret,
 		config.Argon2KeyLength,
 		config.Argon2Memory,
 		config.Argon2Time,
@@ -51,9 +53,10 @@ func NewServer(
 	authService := services.NewAuthService(users, hasher, signer, sessionManager)
 
 	return &Server{
-		config:   config,
-		users:    users,
-		sessions: sessions,
-		auth:     authService,
+		config:    config,
+		Users:     users,
+		Sessions:  sessions,
+		Auth:      authService,
+		Validator: validator.New(validator.WithRequiredStructEnabled()),
 	}, nil
 }

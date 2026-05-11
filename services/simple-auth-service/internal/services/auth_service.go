@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -107,11 +108,14 @@ func (s *AuthService) Signin(
 
 	foundUser, err := s.users.GetByUsername(ctx, username)
 	if err != nil {
+		// TODO reflect this in test cases, no notfound and instead unauthorized
+		if errors.Is(err, serviceerr.NotFound) {
+			return nil, fmt.Errorf("%w: invalid credentials", serviceerr.Unauthorized)
+		}
 		return nil, err
 	}
 
 	isMatch, err := s.hasher.Verify(plaintextPassword, foundUser.PasswordHash)
-
 	if !isMatch {
 		return nil, fmt.Errorf("%w: invalid credentials", serviceerr.Unauthorized)
 	}
@@ -151,4 +155,8 @@ func (s *AuthService) Refresh(ctx context.Context, token string) (*AuthResult, e
 			RefreshToken: refreshResult.RefreshToken,
 		},
 	}, nil
+}
+
+func (s *AuthService) Signout(ctx context.Context, token string) error {
+	return s.sessionManager.Delete(ctx, token)
 }

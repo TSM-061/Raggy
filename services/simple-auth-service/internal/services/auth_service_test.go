@@ -41,12 +41,15 @@ func newTestEnv(ctx context.Context) *testEnv {
 	clock := &clock.MockClock{CurrentTime: time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)}
 
 	publicKey, privateKey := newTestKeyPair(7)
-	signer := token.NewSigner(
+	signer, err := token.NewSigner(
 		clock,
 		privateKey,
 		"raggy-auth-test",
 		15*time.Minute,
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	return &testEnv{
 		users:    users,
@@ -61,12 +64,12 @@ func newTestEnv(ctx context.Context) *testEnv {
 	}
 }
 
-func newTestKeyPair(seedByte byte) (ed25519.PublicKey, ed25519.PrivateKey) {
+func newTestKeyPair(seedByte byte) (ed25519.PublicKey, string) {
 	seed := bytes.Repeat([]byte{seedByte}, ed25519.SeedSize)
 	privateKey := ed25519.NewKeyFromSeed(seed)
 	publicKey := privateKey.Public().(ed25519.PublicKey)
 
-	return publicKey, privateKey
+	return publicKey, base64.StdEncoding.EncodeToString(privateKey)
 }
 
 func TestAuthService_Register(t *testing.T) {
