@@ -27,7 +27,7 @@ func TestHashVerify_HappyPath(t *testing.T) {
 	h := newTestHasher(pepper)
 	encoded := h.Hash(plaintext)
 
-	ok, err := Verify(plaintext, pepper, encoded)
+	ok, err := h.Verify(plaintext, encoded)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestVerify_WrongPassword(t *testing.T) {
 	h := newTestHasher(pepper)
 	encoded := h.Hash("correct-password")
 
-	ok, err := Verify("wrong-password", pepper, encoded)
+	ok, err := h.Verify("wrong-password", encoded)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,8 +55,9 @@ func TestVerify_WrongPassword(t *testing.T) {
 func TestVerify_WrongPepper(t *testing.T) {
 	h := newTestHasher("correct-pepper")
 	encoded := h.Hash("my-password")
+	wrongPepperHasher := newTestHasher("wrong-pepper")
 
-	ok, err := Verify("my-password", "wrong-pepper", encoded)
+	ok, err := wrongPepperHasher.Verify("my-password", encoded)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -128,7 +129,7 @@ func TestVerify_MalformedHash(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := Verify("any-plaintext", "any-pepper", tc.input)
+			_, err := newTestHasher("any-pepper").Verify("any-plaintext", tc.input)
 			if err == nil {
 				t.Errorf("expected an error for case %q but got nil", tc.name)
 			}
@@ -163,7 +164,7 @@ func TestVerify_ParametersExceedMaximums(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			mutated := strings.Join([]string{parts[0], parts[1], parts[2], tc.params, parts[4], parts[5]}, "$")
-			_, err := Verify("any-plaintext", "any-pepper", mutated)
+			_, err := newTestHasher("any-pepper").Verify("any-plaintext", mutated)
 			if err == nil {
 				t.Errorf("expected an error for case %q but got nil", tc.name)
 			}

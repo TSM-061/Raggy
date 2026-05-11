@@ -22,6 +22,16 @@ type Argon2Hasher struct {
 	threads uint8  // parallelism
 }
 
+func NewArgon2Hasher(pepper string, keyLen, memory, time uint32, threads uint8) *Argon2Hasher {
+	return &Argon2Hasher{
+		pepper:  pepper,
+		keyLen:  keyLen,
+		memory:  memory,
+		time:    time,
+		threads: threads,
+	}
+}
+
 const (
 	// prevent resource exhaustion
 	maxAllowedMemory  = 1024 * 1024 // 1GB
@@ -29,11 +39,11 @@ const (
 	maxAllowedTime    = 10
 )
 
-func (h *Argon2Hasher) Hash(password string) string {
+func (h *Argon2Hasher) Hash(plaintext string) string {
 	salt := make([]byte, 16)
 	rand.Read(salt)
 
-	hash := h.hashWithSalt(salt, password)
+	hash := h.hashWithSalt(salt, plaintext)
 
 	return h.toPHCString(salt, hash)
 }
@@ -50,7 +60,7 @@ func (h *Argon2Hasher) toPHCString(salt []byte, hash []byte) string {
 		argon2.Version, h.memory, h.time, h.threads, b64Salt, b64Hash)
 }
 
-func Verify(plaintext, pepper, encodedHash string) (bool, error) {
+func (h *Argon2Hasher) Verify(plaintext, encodedHash string) (bool, error) {
 	// $argon2id$v=19$m=65536,t=3,p=2$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWJTmaaJObG
 	// <empty (leading $)>:<algorithm>:<version>:<parameters>:<salt>:<hash>
 
@@ -114,8 +124,8 @@ func Verify(plaintext, pepper, encodedHash string) (bool, error) {
 		return false, fmt.Errorf("Invalid Hash: threads parameter '%d' exceeds max allowed '%d'", threads, maxAllowedThreads)
 	}
 
-	h := Argon2Hasher{
-		pepper: pepper,
+	v := Argon2Hasher{
+		pepper: h.pepper,
 
 		keyLen: uint32(len(hash)),
 
@@ -124,7 +134,7 @@ func Verify(plaintext, pepper, encodedHash string) (bool, error) {
 		threads: uint8(threads),
 	}
 
-	computed := h.hashWithSalt(salt, plaintext)
+	computed := v.hashWithSalt(salt, plaintext)
 
 	return subtle.ConstantTimeCompare(computed, hash) == 1, nil
 
