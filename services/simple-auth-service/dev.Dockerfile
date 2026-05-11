@@ -1,4 +1,4 @@
-FROM golang:1.26-trixie
+FROM golang:1.26-alpine
 
 WORKDIR /app
 
