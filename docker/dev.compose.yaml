@@ -11,20 +11,17 @@ services:
     depends_on:
       - auth-service
 
-  auth-db:
-    image: postgres:16-alpine
-    container_name: raggy-auth-db
+  auth-database:
+    image: postgres:18-alpine
+    container_name: raggy-auth-database
     environment:
-      POSTGRES_USER: auth_user
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: auth_password
-      POSTGRES_DB: auth_db
     ports:
       - "5432:5432"
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U auth_user -d auth_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    volumes:
+      - auth-database:/var/lib/postgresql
 
   auth-service:
     build:
@@ -32,14 +29,16 @@ services:
       dockerfile: services/simple-auth-service/dev.Dockerfile
     container_name: raggy-auth-service
     depends_on:
-      auth-db:
-        condition: service_healthy
+      - auth-database
     environment:
-      ENV: dev
-      PORT: 80
-      DB_CONNECTION_STRING: "postgres://auth_user:auth_password@auth-db:5432/auth_db?sslmode=disable"
-      AUTH_PASSWORD_PEPPER: "raggy-secret-pepper-2026"
-      ARGON3_KEY_LENGTH: 32
-      ARGON2_MEMORY: 6553
+      ENV: development
+      DB_CONNECTION_STRING: postgres://postgres:auth_password@auth-database:5432/postgres
+    env_file:
+      - ../services/simple-auth-service/.env.example
     volumes:
       - "../:/app"
+      - auth-service-packages:/go/pkg/mod
+
+volumes:
+  auth-service-packages:
+  auth-database:
