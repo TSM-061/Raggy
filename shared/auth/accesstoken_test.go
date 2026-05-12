@@ -1,4 +1,4 @@
-package accesstoken
+package auth
 
 import (
 	"bytes"
@@ -43,7 +43,7 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				t.Helper()
 
 				clk := &clock.MockClock{CurrentTime: fixedNow}
-				signer, err := NewSigner(clk, validPrivateKey, "raggy-test", 15*time.Minute)
+				signer, err := NewTokenSigner(clk, validPrivateKey, "raggy-test", 15*time.Minute)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
@@ -81,7 +81,7 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				t.Helper()
 
 				clk := &clock.MockClock{CurrentTime: fixedNow}
-				signer, err := NewSigner(clk, validPrivateKey, "raggy-test", 15*time.Minute)
+				signer, err := NewTokenSigner(clk, validPrivateKey, "raggy-test", 15*time.Minute)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
@@ -174,7 +174,7 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				// already expired by the time Verify is called.
 				pastTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 				clk := &clock.MockClock{CurrentTime: pastTime}
-				signer, err := NewSigner(clk, validPrivateKey, "raggy-test", 1*time.Second)
+				signer, err := NewTokenSigner(clk, validPrivateKey, "raggy-test", 1*time.Second)
 				if err != nil {
 					t.Fatalf("NewSigner() error = %v", err)
 				}
@@ -210,7 +210,7 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 			if verifierClock == nil {
 				verifierClock = &clock.MockClock{CurrentTime: fixedNow}
 			}
-			verifier := NewVerifier(verifierClock, tt.verifierKey)
+			verifier := NewTokenVerifier(verifierClock, tt.verifierKey)
 			token := tt.token(t)
 
 			claims, err := verifier.Verify(token)
@@ -238,7 +238,7 @@ func TestNewSigner_InvalidKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			signer, err := NewSigner(clk, tt.key, "raggy-test", 15*time.Minute)
+			signer, err := NewTokenSigner(clk, tt.key, "raggy-test", 15*time.Minute)
 
 			if signer != nil {
 				t.Fatal("NewSigner() signer = non-nil, want nil")

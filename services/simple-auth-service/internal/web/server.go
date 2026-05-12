@@ -1,7 +1,7 @@
 package web
 
 import (
-	"github.com/TSM-061/Raggy/shared/accesstoken"
+	"github.com/TSM-061/Raggy/shared/auth"
 	"github.com/TSM-061/Raggy/shared/clock"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/config"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/password"
@@ -40,7 +40,7 @@ func NewServer(
 		config.Argon2Threads,
 	)
 
-	signer, err := accesstoken.NewSigner(
+	signer, err := auth.NewTokenSigner(
 		clock,
 		config.AccessTokenPrivateKey,
 		"raggy-auth",

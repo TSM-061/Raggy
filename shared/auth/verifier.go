@@ -1,4 +1,4 @@
-package accesstoken
+package auth
 
 import (
 	"crypto/ed25519"
@@ -9,19 +9,19 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type Verifier struct {
+type TokenVerifier struct {
 	publicKey ed25519.PublicKey
 	clock     clock.Clock
 }
 
-func NewVerifier(clock clock.Clock, pubKey ed25519.PublicKey) *Verifier {
-	return &Verifier{
+func NewTokenVerifier(clock clock.Clock, pubKey ed25519.PublicKey) *TokenVerifier {
+	return &TokenVerifier{
 		publicKey: pubKey,
 		clock:     clock,
 	}
 }
 
-func (v *Verifier) Verify(tokenStr string) (*UserClaims, error) {
+func (v *TokenVerifier) Verify(tokenStr string) (*UserClaims, error) {
 	claims := &UserClaims{}
 
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (any, error) {

@@ -1,4 +1,4 @@
-package accesstoken
+package auth
 
 import (
 	"crypto/ed25519"
@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type Signer struct {
+type TokenSigner struct {
 	clock clock.Clock
 
 	privateKey ed25519.PrivateKey
@@ -20,7 +20,7 @@ type Signer struct {
 	ttl        time.Duration
 }
 
-func NewSigner(clock clock.Clock, privateKeyBase64 string, iss string, ttl time.Duration) (*Signer, error) {
+func NewTokenSigner(clock clock.Clock, privateKeyBase64 string, iss string, ttl time.Duration) (*TokenSigner, error) {
 	privateKey, err := base64.StdEncoding.DecodeString(privateKeyBase64)
 	if err != nil {
 		return nil, &configerr.ConfigError{
@@ -42,7 +42,7 @@ func NewSigner(clock clock.Clock, privateKeyBase64 string, iss string, ttl time.
 		}
 	}
 
-	return &Signer{
+	return &TokenSigner{
 		clock:      clock,
 		privateKey: ed25519.PrivateKey(privateKey),
 		issuer:     iss,
@@ -50,7 +50,7 @@ func NewSigner(clock clock.Clock, privateKeyBase64 string, iss string, ttl time.
 	}, nil
 }
 
-func (s *Signer) Sign(userID uuid.UUID) (string, error) {
+func (s *TokenSigner) Sign(userID uuid.UUID) (string, error) {
 	iat := s.clock.Now().UTC().Truncate(time.Second)
 	exp := iat.Add(s.ttl)
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/TSM-061/Raggy/shared/accesstoken"
+	"github.com/TSM-061/Raggy/shared/auth"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/password"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/session"
@@ -17,7 +17,7 @@ type AuthService struct {
 	users user.Repo
 
 	hasher         *password.Argon2Hasher
-	signer         *accesstoken.Signer
+	signer         *auth.TokenSigner
 	sessionManager *session.Manager
 }
 
@@ -28,7 +28,7 @@ var usernameRegex = regexp.MustCompile(UsernameRegexStr)
 func NewAuthService(
 	userRepo user.Repo,
 	hasher *password.Argon2Hasher,
-	signer *accesstoken.Signer,
+	signer *auth.TokenSigner,
 	sm *session.Manager) *AuthService {
 
 	return &AuthService{

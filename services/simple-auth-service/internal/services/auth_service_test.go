@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	token "github.com/TSM-061/Raggy/shared/accesstoken"
+	auth "github.com/TSM-061/Raggy/shared/auth"
 	"github.com/TSM-061/Raggy/shared/clock"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/password"
@@ -22,7 +22,7 @@ import (
 )
 
 type testEnv struct {
-	verifier *token.Verifier
+	verifier *auth.TokenVerifier
 	service  *AuthService
 	users    user.Repo
 	hasher   *password.Argon2Hasher
@@ -41,7 +41,7 @@ func newTestEnv(ctx context.Context) *testEnv {
 	clock := &clock.MockClock{CurrentTime: time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)}
 
 	publicKey, privateKey := newTestKeyPair(7)
-	signer, err := token.NewSigner(
+	signer, err := auth.NewTokenSigner(
 		clock,
 		privateKey,
 		"raggy-auth-test",
@@ -53,7 +53,7 @@ func newTestEnv(ctx context.Context) *testEnv {
 
 	return &testEnv{
 		users:    users,
-		verifier: token.NewVerifier(clock, publicKey),
+		verifier: auth.NewTokenVerifier(clock, publicKey),
 		service: NewAuthService(
 			users,
 			hasher,
