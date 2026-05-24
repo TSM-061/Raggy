@@ -14,9 +14,9 @@ import (
 	"github.com/TSM-061/Raggy/dashboard/internal/app"
 	"github.com/TSM-061/Raggy/dashboard/internal/config"
 	"github.com/TSM-061/Raggy/dashboard/internal/events"
-	"github.com/TSM-061/Raggy/dashboard/internal/storage"
 	"github.com/TSM-061/Raggy/dashboard/internal/web"
 	"github.com/TSM-061/Raggy/shared/env"
+	"github.com/TSM-061/Raggy/shared/storage"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -39,7 +39,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	bucket, err := storage.OpenS3Bucket(ctx, cfg)
+	bucket, err := storage.OpenS3Bucket(ctx, cfg.S3Credentials, cfg.S3Config)
 	if err != nil {
 		panic(err)
 	}
