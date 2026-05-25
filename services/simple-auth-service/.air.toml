@@ -3,14 +3,14 @@
 env_files = []
 root = "."
 testdata_dir = "testdata"
-tmp_dir = "tmp"
+tmp_dir = "services/simple-auth-service/tmp"
 
 [build]
   args_bin = []
-  bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ./services/simple-auth-service/cmd/rest/main.go"
+  bin = "./services/simple-auth-service/tmp/main"
+  cmd = "go build -o ./services/simple-auth-service/tmp/main ./services/simple-auth-service/cmd/rest/main.go"
   delay = 1000
-  entrypoint = ["./tmp/main"]
+  entrypoint = ["./services/simple-auth-service/tmp/main"]
   exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []
   exclude_regex = ["_test.go"]
@@ -40,7 +40,7 @@ tmp_dir = "tmp"
   watcher = "cyan"
 
 [log]
-  main_only = false
+  main_only = true
   silent = false
   time = false
 
