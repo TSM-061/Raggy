@@ -132,17 +132,17 @@ func (c *Consumer) handleProjectReportMarkdown(ctx context.Context, uploadMsg up
 	messages := make([]*kgo.Record, len(report.Sections))
 
 	for i, section := range report.Sections {
-		chunkContext := projectreportmd.Context{
+		content := projectreportmd.Content{
 			Title:      report.Frontmatter.Title,
 			Subject:    report.Frontmatter.Subject,
 			Subheading: section.Subheading,
 			Content:    section.Content,
 		}
 
-		chunkContextBytes, err := json.Marshal(chunkContext)
+		contentBytes, err := json.Marshal(content)
 		if err != nil {
 			return fmt.Errorf(
-				"failed to marshal chunk context (upload_id=%s, chunk_index=%d): %w",
+				"failed to marshal chunk content (upload_id=%s, chunk_index=%d): %w",
 				uploadMsg.UploadID,
 				i,
 				err,
@@ -154,8 +154,8 @@ func (c *Consumer) handleProjectReportMarkdown(ctx context.Context, uploadMsg up
 			EventName:  chunk.Stream,
 			ChunkIndex: i,
 			ChunkTotal: len(report.Sections),
-			Context:    chunkContextBytes,
-			Text:       projectreportmd.ContextAsString(chunkContext),
+			Content:    contentBytes,
+			Raw:        projectreportmd.ContentAsString(content),
 		})
 		if err != nil {
 			return fmt.Errorf(
