@@ -16,6 +16,7 @@ import (
 	"github.com/TSM-061/Raggy/dashboard/internal/events"
 	"github.com/TSM-061/Raggy/dashboard/internal/web"
 	"github.com/TSM-061/Raggy/shared/env"
+	"github.com/TSM-061/Raggy/shared/message/upload"
 	"github.com/TSM-061/Raggy/shared/storage"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,7 +24,7 @@ import (
 )
 
 var uploadProfiles = []string{
-	"project_summary_markdown",
+	string(upload.ProjectReportMd),
 }
 
 func main() {

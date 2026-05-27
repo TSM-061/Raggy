@@ -3,12 +3,11 @@ package events
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
-	"strings"
 
 	"github.com/TSM-061/Raggy/dashboard/internal/app"
 	"github.com/TSM-061/Raggy/dashboard/internal/upload"
+	uploadmsg "github.com/TSM-061/Raggy/shared/message/upload"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -47,11 +46,6 @@ func (c *Consumer) Start(ctx context.Context) {
 }
 
 func (c *Consumer) processEvent(ctx context.Context, record *kgo.Record) {
-	fmt.Printf("Message received - Topic: %s, Key: %s\n",
-		record.Topic,
-		string(record.Key),
-	)
-
 	switch record.Topic {
 	case "s3-events":
 		c.handleS3Event(ctx, record)
@@ -71,16 +65,36 @@ func (c *Consumer) handleS3Event(ctx context.Context, record *kgo.Record) {
 			continue
 		}
 
-		objectKey := strings.TrimSpace(s3Record.S3.Object.Key)
-
-		uploadID, err := uuid.Parse(objectKey)
+		uploadID, err := uuid.Parse(s3Record.S3.Object.Key)
 		if err != nil {
-			log.Printf("invalid upload id in s3 event key %q: %v", objectKey, err)
+			log.Printf("invalid upload id in s3 event key %q: %v", s3Record.S3.Object.Key, err)
 			continue
 		}
 
 		if err := c.app.UploadService.UpdateStatus(ctx, uploadID, upload.StatusUploaded); err != nil {
 			log.Printf("failed to update upload status for %s: %v", uploadID, err)
+			return
+		}
+
+		evt := uploadmsg.CompletedMessage{
+			EventType:   uploadmsg.Completed,
+			UploadID:    uploadID.String(),
+			ProfileHint: uploadmsg.ProjectReportMd,
+		}
+		eventJson, err := json.Marshal(evt)
+		if err != nil {
+			return
+		}
+
+		record := &kgo.Record{
+			Topic: uploadmsg.TopicName,
+			Key:   []byte(evt.UploadID),
+			Value: eventJson,
+		}
+
+		if err := c.client.ProduceSync(ctx, record).FirstErr(); err != nil {
+			log.Printf("failed to produce message for %s: %v", uploadID, err)
+			return
 		}
 	}
 }

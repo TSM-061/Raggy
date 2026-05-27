@@ -2,6 +2,7 @@ package upload
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/TSM-061/Raggy/shared/serviceerr"
@@ -103,6 +104,49 @@ func (r *PostgresRepo) List(
 	}
 
 	return uploads, total, nil
+}
+
+func (r *PostgresRepo) GetByID(ctx context.Context, id uuid.UUID) (*Upload, error) {
+	query := `
+		SELECT
+			id,
+			uploaded_by,
+			original_name,
+			content_type,
+			profile_hint,
+			size_bytes,
+			status,
+			created_at,
+			updated_at
+		FROM uploads
+		WHERE id = $1;
+	`
+
+	var upload Upload
+	err := r.pool.QueryRow(ctx, query, id).Scan(
+		&upload.ID,
+		&upload.UploadedBy,
+		&upload.OriginalName,
+		&upload.ContentType,
+		&upload.ProfileHint,
+		&upload.SizeBytes,
+		&upload.Status,
+		&upload.CreatedAt,
+		&upload.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("upload not found (id=%s): %w", id, serviceerr.NotFound)
+		}
+
+		return nil, fmt.Errorf(
+			"upload fetch failed (id=%s): %w",
+			id,
+			serviceerr.WrapPostgresError(err),
+		)
+	}
+
+	return &upload, nil
 }
 
 func (r *PostgresRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status Status) error {

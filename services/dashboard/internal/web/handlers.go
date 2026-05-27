@@ -113,7 +113,7 @@ func (s *Server) HandleListUploads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.Application.UploadService.ListUploads(r.Context(), &services.ListUploadsCommand{
+	result, err := s.Application.UploadService.ListUploads(r.Context(), &services.ListUploadsQuery{
 		Page:     page,
 		PageSize: pageSize,
 	})

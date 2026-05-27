@@ -12,9 +12,8 @@ import (
 type App struct {
 	Config *config.Config
 
-	Uploads        upload.Repo
-	Bucket         *blob.Bucket
-	UploadProfiles *upload.ProfileRegistry
+	Uploads upload.Repo
+	Bucket  *blob.Bucket
 
 	UploadService *services.UploadService
 }
@@ -27,14 +26,12 @@ func New(
 	v *validator.Validate,
 ) *App {
 	uploadRepo := upload.NewPostgresRepo(pool)
-	uploadProfiles := upload.NewProfileRegistry(profileKeys)
-	uploadService := services.NewUploadService(uploadRepo, bucket, cfg.UploadURLTTL, uploadProfiles, v)
+	uploadService := services.NewUploadService(uploadRepo, bucket, cfg.UploadURLTTL, v)
 
 	return &App{
-		Config:         cfg,
-		Uploads:        uploadRepo,
-		Bucket:         bucket,
-		UploadProfiles: uploadProfiles,
-		UploadService:  uploadService,
+		Config:        cfg,
+		Uploads:       uploadRepo,
+		Bucket:        bucket,
+		UploadService: uploadService,
 	}
 }

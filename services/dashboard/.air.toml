@@ -3,14 +3,14 @@
 env_files = []
 root = "."
 testdata_dir = "testdata"
-tmp_dir = "tmp"
+tmp_dir = "./services/dashboard/tmp"
 
 [build]
   args_bin = []
-  bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ./services/dashboard/cmd/rest/main.go"
+  bin = "./services/dashboard/tmp/main"
+  cmd = "go build -o ./services/dashboard/tmp/main ./services/dashboard/cmd/rest/main.go"
   delay = 1000
-  entrypoint = ["./tmp/main"]
+  entrypoint = ["./services/dashboard/tmp/main"]
   exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []
   exclude_regex = ["_test.go"]

@@ -9,6 +9,7 @@ import (
 type Repo interface {
 	Create(ctx context.Context, upload *Upload) error
 	List(ctx context.Context, limit int, offset int) ([]Upload, int64, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*Upload, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status Status) error
 	DeleteByID(ctx context.Context, id uuid.UUID) error
 }

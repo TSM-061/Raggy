@@ -11,8 +11,6 @@ import (
 	"github.com/TSM-061/Raggy/shared/storage"
 )
 
-const ServiceUploadsBucketName = "uploads"
-
 type Config struct {
 	Port               int
 	DbConnectionString string
@@ -48,15 +46,14 @@ func LoadConfig(h *env.Helper) *Config {
 	}
 
 	return &Config{
-		Port:                 h.GetInt("PORT", 80),
-		DbConnectionString:   h.GetStringRequired("DB_CONNECTION_STRING"),
+		Port:               h.GetInt("PORT", 80),
+		DbConnectionString: h.GetStringRequired("DB_CONNECTION_STRING"),
 		S3Credentials: &storage.S3Credentials{
 			AccessKeyID:     h.GetStringRequired("S3_ACCESS_KEY_ID"),
 			SecretAccessKey: h.GetStringRequired("S3_SECRET_ACCESS_KEY"),
 		},
 		S3Config: &storage.S3Config{
-			Bucket:       ServiceUploadsBucketName,
-			Region:       h.GetString("S3_REGION", ""),
+			Bucket:       "uploads",
 			Endpoint:     h.GetStringRequired("S3_ENDPOINT"),
 			UsePathStyle: h.GetBool("S3_USE_PATH_STYLE", true),
 			DisableSSL:   h.GetBool("S3_DISABLE_SSL", false),

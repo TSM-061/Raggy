@@ -16,7 +16,6 @@ type UploadService struct {
 	uploads   upload.Repo
 	bucket    *blob.Bucket
 	urlTTL    time.Duration
-	profiles  *upload.ProfileRegistry
 	validator *validator.Validate
 }
 
@@ -24,14 +23,12 @@ func NewUploadService(
 	uploads upload.Repo,
 	bucket *blob.Bucket,
 	urlTTL time.Duration,
-	profiles *upload.ProfileRegistry,
 	v *validator.Validate,
 ) *UploadService {
 	return &UploadService{
 		uploads:   uploads,
 		bucket:    bucket,
 		urlTTL:    urlTTL,
-		profiles:  profiles,
 		validator: v,
 	}
 }
@@ -66,10 +63,6 @@ func (s *UploadService) CreateUpload(
 
 	if err := s.validator.Struct(req); err != nil {
 		return nil, fmt.Errorf("%w: %v", serviceerr.InvalidInput, err)
-	}
-
-	if !s.profiles.IsRegistered(req.ProfileHint) {
-		return nil, fmt.Errorf("%w: unknown profile hint '%s'", serviceerr.InvalidInput, req.ProfileHint)
 	}
 
 	upload := &upload.Upload{
@@ -118,9 +111,13 @@ func (s *UploadService) UpdateStatus(
 	return s.uploads.UpdateStatus(ctx, id, status)
 }
 
-type ListUploadsCommand struct {
+type ListUploadsQuery struct {
 	Page     int `validate:"omitempty,gte=1"`
 	PageSize int `validate:"omitempty,gte=1,lte=100"`
+}
+
+type GetUploadByIDQuery struct {
+	UploadID uuid.UUID `validate:"required"`
 }
 
 type ListUploadsResult struct {
@@ -132,7 +129,7 @@ type ListUploadsResult struct {
 
 func (s *UploadService) ListUploads(
 	ctx context.Context,
-	req *ListUploadsCommand,
+	req *ListUploadsQuery,
 ) (*ListUploadsResult, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request is required", serviceerr.InvalidInput)
@@ -164,6 +161,21 @@ func (s *UploadService) ListUploads(
 		PageSize:   pageSize,
 		Total:      total,
 	}, nil
+}
+
+func (s *UploadService) GetUploadByID(
+	ctx context.Context,
+	req *GetUploadByIDQuery,
+) (*upload.Upload, error) {
+	if req == nil {
+		return nil, fmt.Errorf("%w: request is required", serviceerr.InvalidInput)
+	}
+
+	if err := s.validator.Struct(req); err != nil {
+		return nil, fmt.Errorf("%w: %v", serviceerr.InvalidInput, err)
+	}
+
+	return s.uploads.GetByID(ctx, req.UploadID)
 }
 
 type DeleteUploadCommand struct {
