@@ -290,3 +290,82 @@ func TestDurationGetters_PanicOnInvalidValue(t *testing.T) {
 		h.GetDurationRequired("DURATION_VALUE")
 	})
 }
+
+func TestGetStringSlice_ReturnsFallbackWhenKeyMissing(t *testing.T) {
+	h := NewHelper(mapLookup(map[string]string{"ENV": "dev"}))
+
+	mustNotPanic(t, func() {
+		got := h.GetStringSlice("MISSING_LIST", []string{"a", "b", "c"})
+		want := []string{"a", "b", "c"}
+		if len(got) != len(want) {
+			t.Fatalf("expected %v, got %v", want, got)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("expected %v, got %v", want, got)
+			}
+		}
+	})
+}
+
+func TestGetStringSlice_ReturnsActualValueWhenPresent(t *testing.T) {
+	h := NewHelper(mapLookup(map[string]string{
+		"ENV":        "dev",
+		"LIST_VALUE": "x,y,z",
+	}))
+
+	mustNotPanic(t, func() {
+		got := h.GetStringSlice("LIST_VALUE", []string{"a", "b", "c"})
+		want := []string{"x", "y", "z"}
+		if len(got) != len(want) {
+			t.Fatalf("expected %v, got %v", want, got)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("expected %v, got %v", want, got)
+			}
+		}
+	})
+}
+
+func TestGetStringSlice_ReturnsSingleElementWhenNoComma(t *testing.T) {
+	h := NewHelper(mapLookup(map[string]string{
+		"ENV":        "dev",
+		"LIST_VALUE": "only",
+	}))
+
+	mustNotPanic(t, func() {
+		got := h.GetStringSlice("LIST_VALUE", []string{"fallback"})
+		if len(got) != 1 || got[0] != "only" {
+			t.Fatalf("expected [\"only\"], got %v", got)
+		}
+	})
+}
+
+func TestGetStringSliceRequired_PanicsWhenKeyMissing(t *testing.T) {
+	h := NewHelper(mapLookup(map[string]string{"ENV": "dev"}))
+
+	mustPanic(t, func() {
+		h.GetStringSliceRequired("MISSING_LIST")
+	})
+}
+
+func TestGetStringSliceRequired_ReturnsActualValueWhenPresent(t *testing.T) {
+	h := NewHelper(mapLookup(map[string]string{
+		"ENV":        "dev",
+		"LIST_VALUE": "foo,bar,baz",
+	}))
+
+	mustNotPanic(t, func() {
+		got := h.GetStringSliceRequired("LIST_VALUE")
+		want := []string{"foo", "bar", "baz"}
+		if len(got) != len(want) {
+			t.Fatalf("expected %v, got %v", want, got)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("expected %v, got %v", want, got)
+			}
+		}
+	})
+}

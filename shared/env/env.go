@@ -18,12 +18,12 @@ type Helper struct {
 
 func NewHelper(lookup LookupFunc) *Helper {
 	raw, ok := lookup("ENV")
-	
+
 	mode := "production"
 	if ok {
 		mode = strings.ToLower(raw)
 	}
-	
+
 	isDev := mode == "dev" || mode == "development"
 	isProd := mode == "prod" || mode == "production"
 
@@ -123,4 +123,19 @@ func (h *Helper) GetDurationRequired(key string) time.Duration {
 	}
 
 	return d
+}
+
+func (h *Helper) GetStringSlice(key string, fallback []string) []string {
+	s := h.GetString(key, "")
+
+	if s == "" {
+		return fallback
+	}
+
+	return strings.Split(s, ",")
+}
+
+func (h *Helper) GetStringSliceRequired(key string) []string {
+	s := h.GetStringRequired(key)
+	return strings.Split(s, ",")
 }
