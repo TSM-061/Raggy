@@ -1,21 +1,29 @@
 package chunk
 
+import "encoding/json"
+
 const TopicName string = "chunks"
 
-type StreamMessage struct {
-	UploadID       string `json:"uploadId"`
-	UploadFilename string `json:"uploadFilename"`
+type Message struct {
+	UploadID string `json:"uploadId"`
 
-	EventName EventName `json:"eventName"`
+	Type Type `json:"type"`
 
-	ChunkIndex int `json:"chunkIndex"`
-	ChunkTotal int `json:"chunkTotal"`
-
-	Payload string `json:"payload"`
+	Payload json.RawMessage `json:"payload"`
 }
 
-type EventName string
+type StreamPayload struct {
+	Index int `json:"index"`
+	Total int `json:"total"`
+
+	// Content formatted as json metadata
+	Content json.RawMessage `json:"content"`
+	// Content formatted as singular string for embedding
+	ContentString string `json:"contentString"`
+}
+
+type Type string
 
 const (
-	Stream EventName = "chunk.stream"
+	StreamEvent Type = "chunk.stream"
 )
