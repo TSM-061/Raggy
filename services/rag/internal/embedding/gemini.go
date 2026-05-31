@@ -25,7 +25,7 @@ func NewGeminiEmbedder(ctx context.Context, config *GeminiEmbedderConfig) (*Gemi
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("gemini client creation failed: %w", err)
+		return nil, fmt.Errorf("initialize gemini client: %w", err)
 	}
 
 	return &GeminiEmbedder{
@@ -46,13 +46,12 @@ func (g *GeminiEmbedder) Embed(ctx context.Context, tokens string) ([]float32, e
 		&genai.EmbedContentConfig{OutputDimensionality: g.dimensions},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("gemini failed to embed content: %w", err)
+		return nil, fmt.Errorf("generate gemini embedding: %w", err)
 	}
 
 	if len(result.Embeddings) != 1 {
 		return nil, fmt.Errorf(
-			"incorrect embedding length returned: wanted %d, got %d",
-			len(contents),
+			"unexpected embeddings result length: wanted 1, got %d",
 			len(result.Embeddings),
 		)
 	}
