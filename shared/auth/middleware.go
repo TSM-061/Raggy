@@ -5,13 +5,14 @@ import (
 	"net/http"
 
 	"github.com/TSM-061/Raggy/shared/serviceerr"
+	"github.com/google/uuid"
 )
 
 const AccessTokenCookieName = "access_token"
 
-type contextKey string
+type contextKey struct{}
 
-const userClaimsContextKey contextKey = "userClaims"
+var userIDContextKey contextKey = contextKey{}
 
 type Middleware struct {
 	verifier *TokenVerifier
@@ -35,12 +36,27 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), userClaimsContextKey, claims)
+		userID, err := uuid.Parse(claims.UserID)
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), userIDContextKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-func UserClaimsFromContext(ctx context.Context) (*UserClaims, bool) {
-	claims, ok := ctx.Value(userClaimsContextKey).(*UserClaims)
-	return claims, ok
+func GetUserID(ctx context.Context) (uuid.UUID, bool) {
+	userID, ok := ctx.Value(userIDContextKey).(uuid.UUID)
+	return userID, ok
+}
+
+func MustGetUserID(ctx context.Context) uuid.UUID {
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		panic("auth user id missing from context. forgot to wrap handler with auth middleware.")
+	}
+
+	return userID
 }
