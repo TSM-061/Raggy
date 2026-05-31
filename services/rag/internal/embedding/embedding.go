@@ -1,3 +1,0 @@
-package embedding
-
-import "context"

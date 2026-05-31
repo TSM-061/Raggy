@@ -2,10 +2,16 @@ package embedding
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"google.golang.org/genai"
 )
+
+type GeminiEmbedderConfig struct {
+	Model      string
+	Dimensions *int32
+	APIKey     string
+}
 
 type GeminiEmbedder struct {
 	client     *genai.Client
@@ -13,15 +19,23 @@ type GeminiEmbedder struct {
 	dimensions *int32
 }
 
-func NewGeminiEmbedder(client *genai.Client, model string, dimensions *int32) *GeminiEmbedder {
+func NewGeminiEmbedder(ctx context.Context, config *GeminiEmbedderConfig) (*GeminiEmbedder, error) {
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey: config.APIKey,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("gemini client creation failed: %w", err)
+	}
+
 	return &GeminiEmbedder{
 		client:     client,
-		model:      model,
-		dimensions: dimensions,
-	}
+		model:      config.Model,
+		dimensions: config.Dimensions,
+	}, nil
 }
 
-func (g *GeminiEmbedder) Embed(ctx context.Context, tokens string) []float32 {
+func (g *GeminiEmbedder) Embed(ctx context.Context, tokens string) ([]float32, error) {
 	contents := []*genai.Content{
 		genai.NewContentFromText(tokens, genai.RoleUser),
 	}
@@ -32,15 +46,16 @@ func (g *GeminiEmbedder) Embed(ctx context.Context, tokens string) []float32 {
 		&genai.EmbedContentConfig{OutputDimensionality: g.dimensions},
 	)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("gemini failed to embed content: %w", err)
 	}
 
 	if len(result.Embeddings) != 1 {
-		log.Fatalf(
-			"Incorrect number of embeddings returned: wanted 1, got %d",
+		return nil, fmt.Errorf(
+			"incorrect embedding length returned: wanted %d, got %d",
+			len(contents),
 			len(result.Embeddings),
 		)
 	}
 
-	return result.Embeddings[0].Values
+	return result.Embeddings[0].Values, nil
 }
