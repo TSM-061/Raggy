@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/TSM-061/Raggy/rag/internal/chunk"
 	"github.com/TSM-061/Raggy/rag/internal/upload"
@@ -12,25 +13,32 @@ import (
 	"github.com/google/uuid"
 )
 
-type RAG struct {
-	uploads  upload.Repo
-	chunks   chunk.Repo
-	embedder Embedder
-}
-
 type Embedder interface {
 	Embed(ctx context.Context, tokens string) ([]float32, error)
+}
+
+type Generator interface {
+	GenerateContent(ctx context.Context, prompt string) (string, error)
+}
+
+type RAG struct {
+	uploads   upload.Repo
+	chunks    chunk.Repo
+	embedder  Embedder
+	generator Generator
 }
 
 func NewRAG(
 	uploads upload.Repo,
 	chunks chunk.Repo,
 	embedder Embedder,
+	generator Generator,
 ) *RAG {
 	return &RAG{
-		uploads:  uploads,
-		chunks:   chunks,
-		embedder: embedder,
+		uploads:   uploads,
+		chunks:    chunks,
+		embedder:  embedder,
+		generator: generator,
 	}
 }
 
@@ -86,4 +94,62 @@ func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
 	)
 
 	return nil
+}
+
+type SearchQuery struct {
+	Instructions string
+	Value        string
+	Limit        int
+}
+
+func (r *RAG) Search(ctx context.Context, query *SearchQuery) (string, error) {
+	limitMax := 5
+
+	if query.Instructions == "" {
+		return "", fmt.Errorf("%w: query instructions can't be empty", serviceerr.InvalidInput)
+	}
+
+	if query.Value == "" {
+		return "", fmt.Errorf("%w: query value can't be empty", serviceerr.InvalidInput)
+	}
+
+	if query.Limit < 1 || query.Limit > limitMax {
+		return "", fmt.Errorf(
+			"%w: query limit %d out of bounds, range [1,%d)",
+			serviceerr.InvalidInput,
+			query.Limit,
+			limitMax,
+		)
+	}
+
+	embedding, err := r.embedder.Embed(ctx, query.Value)
+	if err != nil {
+		return "", fmt.Errorf("calculate query embedding: %w", err)
+	}
+
+	chunks, err := r.chunks.Search(ctx, embedding, query.Limit)
+	if err != nil {
+		return "", fmt.Errorf("search chunk vectors: %w", err)
+	}
+
+	var promptBuilder strings.Builder
+
+	promptBuilder.WriteString("<instructions>\n")
+	promptBuilder.WriteString(query.Instructions)
+	promptBuilder.WriteString("</instructions>\n")
+
+	promptBuilder.WriteString("<context>\n")
+	for _, c := range chunks {
+		promptBuilder.WriteString("<context_item>")
+		promptBuilder.Write(c.Content)
+		promptBuilder.WriteString("</context_item>\n")
+	}
+	promptBuilder.WriteString("</context>\n")
+
+	response, err := r.generator.GenerateContent(ctx, promptBuilder.String())
+	if err != nil {
+		return "", fmt.Errorf("generate prompt response: %w", err)
+	}
+
+	return response, nil
 }
