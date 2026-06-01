@@ -12,6 +12,6 @@ type Chunk struct {
 	ChunkIndex int
 	Content    []byte
 	// Omitted as not returned in queries / or used in creation
-	// Embedding  []float32
+	Embedding []float32
 	CreatedAt time.Time
 }

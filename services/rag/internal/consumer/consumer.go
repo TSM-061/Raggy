@@ -20,11 +20,11 @@ type Config struct {
 
 type Runner struct {
 	client     *kgo.Client
-	ragService *services.RAG
+	ragService *rag.RAG
 	config     *Config
 }
 
-func New(config *Config, ragService *services.RAG) (*Runner, error) {
+func New(config *Config, ragService *rag.RAG) (*Runner, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(config.SeedBrokers...),
 		kgo.ConsumerGroup("rag-service"),
@@ -43,7 +43,7 @@ func New(config *Config, ragService *services.RAG) (*Runner, error) {
 
 func (c *Runner) Start(ctx context.Context) {
 	log := logger.FromContext(ctx)
-	log.Info("Kafka consumer ready")
+	log.Info("kafka consumer ready")
 
 	for {
 
@@ -62,7 +62,7 @@ func (c *Runner) Start(ctx context.Context) {
 			if err := c.ProcessMessage(ctx, record); err != nil {
 				log.ErrorContext(
 					ctx,
-					"Error processing message",
+					"error processing message",
 					slog.String("kafka_topic", record.Topic),
 					slog.Int("kafka_partition", int(record.Partition)),
 					slog.Int64("kafka_offset", record.Offset),
@@ -112,7 +112,7 @@ func (c *Runner) HandleChunkStream(ctx context.Context, msg chunk.Message) error
 		return fmt.Errorf("parse upload id: %w", err)
 	}
 
-	if err := c.ragService.IngestChunk(ctx, &services.ChunkInformation{
+	if err := c.ragService.IngestChunk(ctx, &rag.ChunkInformation{
 		UploadID:      uploadID,
 		ChunkIndex:    payload.Index,
 		ChunkTotal:    payload.Total,

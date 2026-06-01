@@ -1,9 +1,10 @@
-package services
+package rag
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/TSM-061/Raggy/rag/internal/chunk"
@@ -28,7 +29,7 @@ type RAG struct {
 	generator Generator
 }
 
-func NewRAG(
+func New(
 	uploads upload.Repo,
 	chunks chunk.Repo,
 	embedder Embedder,
@@ -89,25 +90,23 @@ func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
 	log.InfoContext(
 		ctx,
 		"Chunk embedding successfully persisted",
-		"chunk_index", info.ChunkIndex,
-		"chunk_total", info.ChunkTotal,
+		slog.String("chunk_id", chunk.ID.String()),
+		slog.Int("chunk_index", info.ChunkIndex),
+		slog.Int("chunk_total", info.ChunkTotal),
 	)
 
 	return nil
 }
 
 type SearchQuery struct {
-	Instructions string
-	Value        string
-	Limit        int
+	Value string
+	Limit int
 }
 
 func (r *RAG) Search(ctx context.Context, query *SearchQuery) (string, error) {
-	limitMax := 5
+	log := logger.FromContext(ctx)
 
-	if query.Instructions == "" {
-		return "", fmt.Errorf("%w: query instructions can't be empty", serviceerr.InvalidInput)
-	}
+	limitMax := 5
 
 	if query.Value == "" {
 		return "", fmt.Errorf("%w: query value can't be empty", serviceerr.InvalidInput)
@@ -134,10 +133,6 @@ func (r *RAG) Search(ctx context.Context, query *SearchQuery) (string, error) {
 
 	var promptBuilder strings.Builder
 
-	promptBuilder.WriteString("<instructions>\n")
-	promptBuilder.WriteString(query.Instructions)
-	promptBuilder.WriteString("</instructions>\n")
-
 	promptBuilder.WriteString("<context>\n")
 	for _, c := range chunks {
 		promptBuilder.WriteString("<context_item>")
@@ -150,6 +145,11 @@ func (r *RAG) Search(ctx context.Context, query *SearchQuery) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("generate prompt response: %w", err)
 	}
+
+	log.InfoContext(ctx,
+		"search query made",
+		slog.Any("query", query),
+	)
 
 	return response, nil
 }

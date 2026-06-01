@@ -22,8 +22,8 @@ func NewPostgresRepo(pool *pgxpool.Pool) Repo {
 
 func (r *PostgresRepo) Create(ctx context.Context, chunk *Chunk) error {
 	query := `
-		INSERT INTO chunks (upload_id, chunk_index, content)
-		VALUES ($1, $2, $3::jsonb)
+		INSERT INTO chunks (upload_id, chunk_index, content, embedding)
+		VALUES ($1, $2, $3::jsonb, $4::vector)
 		RETURNING id, created_at;
 	`
 
@@ -33,7 +33,9 @@ func (r *PostgresRepo) Create(ctx context.Context, chunk *Chunk) error {
 		chunk.UploadID,
 		chunk.ChunkIndex,
 		json.RawMessage(chunk.Content),
+		formatEmbedding(chunk.Embedding),
 	).Scan(&chunk.ID, &chunk.CreatedAt)
+
 	if err != nil {
 		return fmt.Errorf(
 			"chunk creation failed: %w",

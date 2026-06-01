@@ -23,7 +23,7 @@ type GeminiClient struct {
 	generationModel     string
 }
 
-func NewGemini(ctx context.Context, cfg *GeminiEmbedderConfig) (*GeminiClient, error) {
+func NewGeminiClient(ctx context.Context, cfg *GeminiEmbedderConfig) (*GeminiClient, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: cfg.APIKey,
 	})
