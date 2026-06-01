@@ -1,0 +1,105 @@
+services:
+  dozzle:
+    image: amir20/dozzle:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dozzle_data:/data
+    ports:
+      - 8080:8080
+    labels:
+      - dev.dozzle.group=infrastructure
+
+  proxy:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ../nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+    networks:
+      default:
+        aliases:
+          - s3.localhost
+    labels:
+      - dev.dozzle.group=infrastructure
+
+  s3:
+    image: minio/minio
+    container_name: s3
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: miniopassword
+      MINIO_NOTIFY_KAFKA_ENABLE_primary: on
+      MINIO_NOTIFY_KAFKA_BROKERS_primary: kafka:9092
+      MINIO_NOTIFY_KAFKA_TOPIC_primary: s3-events
+    volumes:
+      - s3_data:/data
+    command: server /data --console-address ":9001"
+    labels:
+      - dev.dozzle.group=storage
+
+  s3-init:
+    image: minio/mc
+    container_name: s3-init
+    volumes:
+      - ./s3-init.sh:/s3-init.sh
+    entrypoint: [ "/bin/sh", "/s3-init.sh" ]
+    labels:
+      - dev.dozzle.group=init
+    depends_on:
+      - s3
+
+  kafka:
+    image: apache/kafka:latest
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_KRAFT_MODE: "true"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    labels:
+      - dev.dozzle.group=infrastructure
+
+  kafka-init:
+    image: apache/kafka:latest
+    entrypoint: [ "/bin/bash", "/usr/local/bin/init-kafka.sh" ]
+    restart: "no"
+    volumes:
+      - ./kafka-init.sh:/usr/local/bin/init-kafka.sh
+    depends_on:
+      - kafka
+    labels:
+      - dev.dozzle.group=init
+
+  kafka-ui:
+    image: tchiotludo/akhq
+    ports:
+      - "9080:8080"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            my-local-cluster:
+              properties:
+                bootstrap.servers: "kafka:9092"
+    labels:
+      - dev.dozzle.group=infrastructure
+    depends_on:
+      - kafka
+
+volumes:
+  dozzle_data:
+  s3_data:

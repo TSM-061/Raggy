@@ -1,133 +1,14 @@
 name: raggy
 
+include:
+  - db.yaml
+  - infra.yaml
+
 services:
-  dozzle:
-    image: amir20/dozzle:latest
-    container_name: raggy-log-dashboard
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - dozzle_data:/data
-    ports:
-      - 8080:8080
-    labels:
-      - dev.dozzle.group=infrastructure
-
-  proxy:
-    image: nginx:alpine
-    container_name: raggy-proxy
-    ports:
-      - "80:80"
-    volumes:
-      - ../nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - auth-service
-    networks:
-      default:
-        aliases:
-          - s3.localhost
-    labels:
-      - dev.dozzle.group=infrastructure
-
-  kafka:
-    image: apache/kafka:latest
-    container_name: kafka
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_KRAFT_MODE: "true"
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-    labels:
-      - dev.dozzle.group=infrastructure
-
-  kafka-init:
-    image: apache/kafka:latest
-    container_name: raggy-kafka-init
-    entrypoint: [ "/bin/bash", "/usr/local/bin/init-kafka.sh" ]
-    restart: "no"
-    volumes:
-      - ./kafka-init.sh:/usr/local/bin/init-kafka.sh
-    depends_on:
-      - kafka
-    labels:
-      - dev.dozzle.group=infrastructure
-
-  kafka-ui:
-    container_name: kafka-ui
-    image: tchiotludo/akhq
-    ports:
-      - "9080:8080"
-    environment:
-      AKHQ_CONFIGURATION: |
-        akhq:
-          connections:
-            my-local-cluster:
-              properties:
-                bootstrap.servers: "kafka:9092"
-    depends_on:
-      - kafka
-    labels:
-      - dev.dozzle.group=infrastructure
-
-  s3:
-    image: minio/minio
-    container_name: raggy-s3
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: miniopassword
-      MINIO_NOTIFY_KAFKA_ENABLE_primary: on
-      MINIO_NOTIFY_KAFKA_BROKERS_primary: kafka:9092
-      MINIO_NOTIFY_KAFKA_TOPIC_primary: s3-events
-    volumes:
-      - s3_data:/data
-    command: server /data --console-address ":9001"
-    labels:
-      - dev.dozzle.group=storage
-
-  s3-init:
-    image: minio/mc
-    container_name: raggy-s3-init
-    depends_on:
-      - s3
-    volumes:
-      - ./s3-init.sh:/s3-init.sh
-    entrypoint: [ "/bin/sh", "/s3-init.sh" ]
-    labels:
-      - dev.dozzle.group=infrastructure
-
-  auth-db:
-    image: postgres:18-alpine
-    container_name: raggy-auth-db
-    environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: auth_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - auth_db_data:/var/lib/postgresql
-    labels:
-      - dev.dozzle.group=storage
-
   auth-service:
     build:
       context: ../
       dockerfile: services/simple-auth-service/dev.Dockerfile
-    container_name: raggy-auth-service
-    depends_on:
-      - auth-db
     env_file:
       - ../services/simple-auth-service/.env.example
     environment:
@@ -138,28 +19,13 @@ services:
       - auth_service_pkg:/go/pkg/mod
     labels:
       - dev.dozzle.group=services
-
-  dashboard-db:
-    image: postgres:18-alpine
-    container_name: raggy-dash-db
-    environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dashboard_password
-    ports:
-      - "5433:5432"
-    volumes:
-      - dashboard_db_data:/var/lib/postgresql
-    labels:
-      - dev.dozzle.group=storage
+    depends_on:
+      - auth-db
 
   dashboard-service:
     build:
       context: ../
       dockerfile: services/dashboard/dev.Dockerfile
-    container_name: raggy-dash-service
-    depends_on:
-      - auth-db
     environment:
       ENV: development
       DB_CONNECTION_STRING: postgres://postgres:dashboard_password@dashboard-db:5432/postgres
@@ -173,12 +39,13 @@ services:
       - dashboard_service_pkg:/go/pkg/mod
     labels:
       - dev.dozzle.group=services
+    depends_on:
+      - dashboard-db
 
   ingestion-worker:
     build:
       context: ../
       dockerfile: services/ingestion-worker/dev.Dockerfile
-    container_name: raggy-ingestion-worker
     environment:
       KAFKA_SEED_BROKERS: "kafka:9092"
       S3_ENDPOINT: "http://s3.localhost"
@@ -190,44 +57,29 @@ services:
     labels:
       - dev.dozzle.group=services
 
-  rag-db:
-    image: pgvector/pgvector:pg18-trixie
-    container_name: raggy-rag-db
-    environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: rag_password
-    ports:
-      - "5434:5432"
-    volumes:
-      - rag_db_data:/var/lib/postgresql
-    labels:
-      - dev.dozzle.group=storage
-
   rag-service:
     build:
       context: ../
       dockerfile: services/rag/dev.Dockerfile
-    container_name: raggy-rag-service
-    depends_on:
-      - rag-db
     env_file:
       - ../services/rag/.env
     environment:
       ENV: development
       DB_CONNECTION_STRING: postgres://postgres:rag_password@rag-db:5432/postgres
+      ACCESS_TOKEN_PUBLIC_KEY: 0qw/WOYvsmc3TJKKebk3vawfmo8aKGM6lpFchb6XviI=
       KAFKA_SEED_BROKERS: "kafka:9092"
     volumes:
       - "../:/app"
       - rag_service_pkg:/go/pkg/mod
     labels:
       - dev.dozzle.group=services
+    depends_on:
+      - rag-db
 
   frontend:
     build:
       context: ../frontend
       dockerfile: dev.Dockerfile
-    container_name: raggy-frontend
     environment:
       NODE_ENV: "development"
       PORT: 80
@@ -236,13 +88,10 @@ services:
       - frontend_pkg:/app/node_modules
 
 volumes:
-  dozzle_data:
-  s3_data:
+
   auth_service_pkg:
-  auth_db_data:
   dashboard_service_pkg:
-  dashboard_db_data:
   ingestion_worker_pkg:
   rag_service_pkg:
-  rag_db_data:
+
   frontend_pkg:
