@@ -22,6 +22,11 @@ func NewMiddleware(verifier *TokenVerifier) *Middleware {
 	return &Middleware{verifier: verifier}
 }
 
+func (m *Middleware) WrapFn(nextFunc http.HandlerFunc) http.Handler {
+	handler := http.HandlerFunc(nextFunc)
+	return m.Wrap(handler)
+}
+
 func (m *Middleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(AccessTokenCookieName)
