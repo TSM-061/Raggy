@@ -15,29 +15,21 @@ import (
 	"github.com/TSM-061/Raggy/rag/internal/rag"
 	"github.com/TSM-061/Raggy/rag/internal/upload"
 	"github.com/TSM-061/Raggy/rag/internal/web"
-	"github.com/TSM-061/Raggy/shared/env"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		slog.Error("failed to load config", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	log := logger.New(cfg.LogLevel)
 
 	baseCtx := context.Background()
 	baseCtx = logger.ToContext(baseCtx, log)
-
-	e := env.NewHelper(os.LookupEnv)
-
-	cfg, err := config.LoadConfig(e)
-	if err != nil {
-		log.Error(
-			"failed to load config",
-			slog.Any("error", err),
-		)
-		os.Exit(1)
-	}
 
 	runCtx, stop := signal.NotifyContext(
 		baseCtx,

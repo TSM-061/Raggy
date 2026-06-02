@@ -7,13 +7,11 @@ import (
 	"google.golang.org/genai"
 )
 
-type GeminiEmbedderConfig struct {
-	APIKey string
-
-	EmbeddingModel      string
-	EmbeddingDimensions *int32
-
-	GenerationModel string
+type GeminiConfig struct {
+	APIKey              string `env:"API_KEY,required"`
+	EmbeddingModel      string `env:"EMBEDDING_MODEL" envDefault:"gemini-embedding-2"`
+	EmbeddingDimensions *int32 `env:"EMBEDDING_DIMENSIONS" envDefault:"1536"`
+	GenerationModel     string `env:"GENERATION_MODEL" envDefault:"gemini-3.5-flash"`
 }
 
 type GeminiClient struct {
@@ -23,7 +21,7 @@ type GeminiClient struct {
 	generationModel     string
 }
 
-func NewGeminiClient(ctx context.Context, cfg *GeminiEmbedderConfig) (*GeminiClient, error) {
+func NewGeminiClient(ctx context.Context, cfg *GeminiConfig) (*GeminiClient, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: cfg.APIKey,
 	})

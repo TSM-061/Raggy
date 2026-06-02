@@ -14,8 +14,8 @@ import (
 )
 
 type Config struct {
-	MaxPollRecords int
-	SeedBrokers    []string
+	MaxPollRecords int      `env:"MAX_POLL_RECORDS" envDefault:"10"`
+	SeedBrokers    []string `env:"SEED_BROKERS,required"`
 }
 
 type Runner struct {
