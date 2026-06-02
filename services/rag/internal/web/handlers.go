@@ -3,10 +3,12 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
-	rag "github.com/TSM-061/Raggy/rag/internal/rag"
+	"github.com/TSM-061/Raggy/rag/internal/rag"
+	"github.com/TSM-061/Raggy/shared/logger"
 )
 
 type queryResponse struct {
@@ -15,21 +17,27 @@ type queryResponse struct {
 
 func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	log := logger.FromContext(ctx)
 
-	queryParams := r.URL.Query()
+	params := r.URL.Query()
 
-	q := queryParams.Get("q")
+	q := params.Get("q")
 	if q == "" {
-		http.Error(w, "invalid param 'query' must not be empty", http.StatusBadRequest)
+		http.Error(w, "invalid param 'q' must not be empty", http.StatusBadRequest)
 		return
 	}
 
-	limitStr := queryParams.Get("limit")
 	limit := 5
-	if limitStr != "" {
+	if limitStr := params.Get("limit"); limitStr != "" {
 		limitInt, err := strconv.Atoi(limitStr)
 		if err != nil {
-			http.Error(w, "invalid param 'limit' not an int", http.StatusBadRequest)
+			http.Error(w, "invalid queryparam 'limit' must be an integer", http.StatusBadRequest)
+			return
+		}
+
+		if limitInt <= 0 {
+			http.Error(w, "invalid queryparam 'limit' must be > 0", http.StatusBadRequest)
+			return
 		}
 		limit = limitInt
 	}
@@ -39,13 +47,22 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 		Limit: limit,
 	})
 	if err != nil {
+
 		http.Error(w, "search failed", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(&queryResponse{
-		Response: response,
-	}); err != nil {
-		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+	if err := json.NewEncoder(w).Encode(&queryResponse{Response: response}); err != nil {
+		log.ErrorContext(
+			ctx,
+			`failed to encode query response JSON`,
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			fmt.Sprintf("failed to encode response: %v", err),
+			http.StatusInternalServerError,
+		)
 	}
 }

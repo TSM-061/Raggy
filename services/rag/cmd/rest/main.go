@@ -80,7 +80,7 @@ func main() {
 	}
 	defer consumer.Close()
 
-	server := web.NewServer(cfg, ragService)
+	server := web.NewServer(cfg, log, ragService)
 
 	go server.Start(runCtx, stop)
 	go consumer.Start(runCtx)

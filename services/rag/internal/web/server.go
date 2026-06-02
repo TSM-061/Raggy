@@ -19,15 +19,17 @@ type Server struct {
 	httpServer *http.Server
 	rag        *rag.RAG
 	auth       *auth.Middleware
+	logger     *slog.Logger
 }
 
-func NewServer(cfg *config.Config, ragService *rag.RAG) *Server {
+func NewServer(cfg *config.Config, logger *slog.Logger, ragService *rag.RAG) *Server {
 	verifier := auth.NewTokenVerifier(&clock.LiveClock{}, cfg.AccessTokenPublicKey)
 
 	server := &Server{
-		cfg:  cfg,
-		rag:  ragService,
-		auth: auth.NewMiddleware(verifier),
+		cfg:    cfg,
+		rag:    ragService,
+		auth:   auth.NewMiddleware(verifier),
+		logger: logger,
 	}
 
 	server.httpServer = &http.Server{
@@ -43,7 +45,12 @@ func (s *Server) GetEndpoints() http.Handler {
 
 	mux.HandleFunc("GET /api/search", s.HandleQuery)
 
-	return s.auth.Wrap(mux)
+	var handler http.Handler = mux
+
+	handler = s.auth.Wrap(handler)
+	handler = logger.Wrap(handler, s.logger)
+
+	return handler
 }
 
 func (s *Server) Start(ctx context.Context, onFatalErr func()) {

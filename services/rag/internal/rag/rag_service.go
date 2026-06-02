@@ -143,11 +143,16 @@ func (r *RAG) Search(ctx context.Context, query *SearchQuery) (string, error) {
 
 	response, err := r.generator.GenerateContent(ctx, promptBuilder.String())
 	if err != nil {
+		log.ErrorContext(ctx, "rag search operation failed",
+			slog.String("query", query.Value),
+			slog.Int("limit", query.Limit),
+			slog.Any("error", err),
+		)
 		return "", fmt.Errorf("generate prompt response: %w", err)
 	}
 
 	log.InfoContext(ctx,
-		"search query made",
+		"rag search operation",
 		slog.Any("query", query),
 	)
 
