@@ -3,6 +3,7 @@ package logger
 import (
 	"context"
 	"log/slog"
+	"net/http"
 )
 
 type contextKey struct{}
@@ -19,4 +20,12 @@ func FromContext(ctx context.Context) *slog.Logger {
 	}
 
 	return slog.Default()
+}
+
+func Wrap(next http.Handler, logger *slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		ctx = ToContext(ctx, logger)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
