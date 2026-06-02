@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,6 +25,9 @@ func main() {
 		Level: slog.LevelDebug,
 	}))
 
+	baseCtx := context.Background()
+	baseCtx = logger.ToContext(baseCtx, log)
+
 	e := env.NewHelper(os.LookupEnv)
 
 	cfg, err := config.LoadConfig(e)
@@ -37,21 +37,16 @@ func main() {
 			slog.Any("error", err),
 		)
 		os.Exit(1)
-
 	}
 
-	ctx := context.Background()
-
-	ctx = logger.ToContext(ctx, log)
-
-	ctx, stop := signal.NotifyContext(
-		ctx,
+	runCtx, stop := signal.NotifyContext(
+		baseCtx,
 		os.Interrupt,
 		syscall.SIGTERM,
 	)
 	defer stop()
 
-	pool, err := pgxpool.New(ctx, cfg.DbConnectionString)
+	pool, err := pgxpool.New(baseCtx, cfg.DbConnectionString)
 	if err != nil {
 		log.Error(
 			"failed to open database connection pool",
@@ -64,7 +59,7 @@ func main() {
 	chunks := chunk.NewPostgresRepo(pool)
 	uploads := upload.NewPostgresRepo(pool)
 
-	geminiClient, err := ai.NewGeminiClient(ctx, cfg.GeminiConfig)
+	geminiClient, err := ai.NewGeminiClient(baseCtx, cfg.GeminiConfig)
 	if err != nil {
 		log.Error(
 			"failed to create gemini ai client",
@@ -86,39 +81,14 @@ func main() {
 	defer consumer.Close()
 
 	server := web.NewServer(cfg, ragService)
-	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: server.GetEndpoints(),
-	}
 
-	go func() {
-		log.InfoContext(ctx, "http server ready", slog.Int("port", cfg.Port))
+	go server.Start(runCtx, stop)
+	go consumer.Start(runCtx)
+	<-runCtx.Done()
 
-		if err := httpServer.ListenAndServe(); err != nil {
-			isExit := errors.Is(err, http.ErrServerClosed)
+	log.InfoContext(baseCtx, "http server shutting down")
 
-			if !isExit {
-				log.ErrorContext(ctx, "http server exited", slog.Any("error", err))
-			}
-
-			stop()
-		}
-
-	}()
-
-	go consumer.Start(ctx)
-
-	<-ctx.Done()
-
-	log.InfoContext(ctx, "http server shutting down")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
 	defer cancel()
-
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		log.InfoContext(ctx, "http server shutdown failed", slog.Any("error", err))
-		return
-	}
-
-	log.InfoContext(ctx, "http server shutdown completed")
+	server.Shutdown(shutdownCtx)
 }
