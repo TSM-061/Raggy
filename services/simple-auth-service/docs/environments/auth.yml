@@ -1,0 +1,6 @@
+name: auth
+variables:
+  - name: username
+    value: developer
+  - name: password
+    value: XlRcj+q1lZNiF0s3RMi9Rxv5xcuuVr+g
