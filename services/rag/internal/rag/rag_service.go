@@ -89,7 +89,7 @@ func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
 
 	log.InfoContext(
 		ctx,
-		"Chunk embedding successfully persisted",
+		"chunk embedding successfully persisted",
 		slog.String("chunk_id", chunk.ID.String()),
 		slog.Int("chunk_index", info.ChunkIndex),
 		slog.Int("chunk_total", info.ChunkTotal),
@@ -152,7 +152,7 @@ func (r *RAG) Search(ctx context.Context, query *SearchQuery) (string, error) {
 	}
 
 	log.InfoContext(ctx,
-		"rag search operation",
+		"rag search query",
 		slog.Any("query", query),
 	)
 

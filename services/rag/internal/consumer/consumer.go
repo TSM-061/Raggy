@@ -43,10 +43,9 @@ func New(config *Config, ragService *rag.RAG) (*Runner, error) {
 
 func (c *Runner) Start(ctx context.Context) {
 	log := logger.FromContext(ctx)
-	log.Info("kafka consumer ready")
+	log.InfoContext(ctx, "kafka consumer ready")
 
 	for {
-
 		fetches := c.client.PollRecords(ctx, c.config.MaxPollRecords)
 
 		if fetches.IsClientClosed() {
@@ -94,7 +93,11 @@ func (c *Runner) ProcessMessage(ctx context.Context, record *kgo.Record) error {
 			return fmt.Errorf("upload %s: %w", msg.UploadID, err)
 		}
 	default:
-		log.DebugContext(ctx, "ignoring unsupported chunk message")
+		log.DebugContext(
+			ctx,
+			"ignoring unsupported chunk message",
+			slog.String("type", string(msg.Type)),
+		)
 	}
 
 	return nil
