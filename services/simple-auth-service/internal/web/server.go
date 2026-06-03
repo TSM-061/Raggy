@@ -1,62 +1,85 @@
 package web
 
 import (
-	"github.com/TSM-061/Raggy/shared/auth"
-	"github.com/TSM-061/Raggy/shared/clock"
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+
+	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/config"
-	"github.com/TSM-061/Raggy/simple-auth-service/internal/password"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/services"
-	"github.com/TSM-061/Raggy/simple-auth-service/internal/session"
-	"github.com/TSM-061/Raggy/simple-auth-service/internal/user"
 	"github.com/go-playground/validator/v10"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Server struct {
-	config    *config.Config
-	Users     user.Repo
-	Sessions  session.Repo
-	Auth      *services.AuthService
-	Validator *validator.Validate
+	config *config.Config
+
+	httpServer *http.Server
+
+	validator *validator.Validate
+
+	auth *services.Auth
 }
 
 func NewServer(
-	config *config.Config,
-	pool *pgxpool.Pool,
-) (*Server, error) {
+	cfg *config.Config,
+	log *slog.Logger,
+	auth *services.Auth,
+) *Server {
 
-	clock := &clock.LiveClock{}
-
-	users := user.NewPostgresRepo(pool)
-	sessions := session.NewPostgresRepo(pool)
-
-	sessionManager := session.NewManager(config.RefreshTokenSecret, sessions)
-
-	hasher := password.NewArgon2Hasher(
-		config.PasswordSecret,
-		config.Argon2KeyLength,
-		config.Argon2Memory,
-		config.Argon2Time,
-		config.Argon2Threads,
-	)
-
-	signer, err := auth.NewTokenSigner(
-		clock,
-		config.AccessTokenPrivateKey,
-		"raggy-auth",
-		config.AccessTokenTTL,
-	)
-	if err != nil {
-		return nil, err
+	server := &Server{
+		config:    cfg,
+		auth:      auth,
+		validator: validator.New(validator.WithRequiredStructEnabled()),
 	}
 
-	authService := services.NewAuthService(users, hasher, signer, sessionManager)
+	server.httpServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: server.GetEndpoints(log),
+	}
 
-	return &Server{
-		config:    config,
-		Users:     users,
-		Sessions:  sessions,
-		Auth:      authService,
-		Validator: validator.New(validator.WithRequiredStructEnabled()),
-	}, nil
+	return server
+}
+
+func (s *Server) GetEndpoints(log *slog.Logger) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/auth/signin", s.HandleSignin)
+	mux.HandleFunc("POST /api/auth/refresh", s.HandleRefresh)
+	mux.HandleFunc("POST /api/auth/signout", s.HandleSignout)
+
+	var handler http.Handler = mux
+
+	handler = logger.Wrap(handler, log)
+
+	return handler
+}
+
+func (s *Server) Start(ctx context.Context, onFatalErr func()) {
+	log := logger.FromContext(ctx)
+
+	log.InfoContext(ctx, "http server ready", slog.Int("port", s.config.Port))
+
+	if err := s.httpServer.ListenAndServe(); err != nil {
+		// http server exiting from a fatal error
+		if !errors.Is(err, http.ErrServerClosed) {
+			log.ErrorContext(ctx, "http server exited", slog.Any("error", err))
+			onFatalErr()
+		}
+	}
+}
+
+func (s *Server) Shutdown(ctx context.Context) {
+	log := logger.FromContext(ctx)
+
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		log.InfoContext(ctx, "http server shutdown failed", slog.Any("error", err))
+	} else {
+		log.InfoContext(ctx, "http server shutdown completed")
+	}
+}
+
+func (s *Server) Auth() *services.Auth {
+	return s.auth
 }

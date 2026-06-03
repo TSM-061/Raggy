@@ -6,7 +6,9 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
+	"log/slog"
 
+	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/google/uuid"
 )
@@ -24,6 +26,8 @@ func NewManager(secret string, sessions Repo) *Manager {
 }
 
 func (m *Manager) Create(ctx context.Context, userId uuid.UUID) (string, error) {
+	log := logger.FromContext(ctx)
+
 	validator := generateValidator()
 
 	s := &Session{
@@ -35,6 +39,12 @@ func (m *Manager) Create(ctx context.Context, userId uuid.UUID) (string, error) 
 	if err != nil {
 		return "", err
 	}
+
+	log.InfoContext(
+		ctx,
+		"user signed in",
+		slog.String("user_id", userId.String()),
+	)
 
 	return encodeRefreshToken(s.Selector, validator), nil
 }
@@ -61,6 +71,8 @@ type RefreshResult struct {
 }
 
 func (m *Manager) Refresh(ctx context.Context, token string) (*RefreshResult, error) {
+	log := logger.FromContext(ctx)
+
 	selector, validator, err := parseRefreshToken(token)
 	if err != nil {
 		return nil, err
@@ -86,6 +98,13 @@ func (m *Manager) Refresh(ctx context.Context, token string) (*RefreshResult, er
 		return nil, err
 	}
 
+	log.InfoContext(
+		ctx,
+		"session token refreshed",
+		slog.String("user_id", session.UserID.String()),
+		slog.String("session_selector", session.Selector.String()),
+	)
+
 	return &RefreshResult{
 		UserID:       session.UserID,
 		RefreshToken: encodeRefreshToken(session.Selector, newValidator),
@@ -93,6 +112,8 @@ func (m *Manager) Refresh(ctx context.Context, token string) (*RefreshResult, er
 }
 
 func (m *Manager) Delete(ctx context.Context, token string) error {
+	log := logger.FromContext(ctx)
+
 	selector, validator, err := parseRefreshToken(token)
 	if err != nil {
 		return err
@@ -111,7 +132,16 @@ func (m *Manager) Delete(ctx context.Context, token string) error {
 		return fmt.Errorf("%w: couldn't verify token", serviceerr.Unauthorized)
 	}
 
-	m.sessions.Delete(ctx, session)
+	if err := m.sessions.Delete(ctx, session); err != nil {
+		return err
+	}
+
+	log.InfoContext(
+		ctx,
+		"user signed out",
+		slog.String("user_id", session.UserID.String()),
+		slog.String("session_selector", session.Selector.String()),
+	)
 
 	return nil
 }

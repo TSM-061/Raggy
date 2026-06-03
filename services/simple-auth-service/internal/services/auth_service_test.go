@@ -23,7 +23,7 @@ import (
 
 type testEnv struct {
 	verifier *auth.TokenVerifier
-	service  *AuthService
+	service  *Auth
 	users    user.Repo
 	hasher   *password.Argon2Hasher
 }
@@ -36,17 +36,22 @@ func newTestEnv(ctx context.Context) *testEnv {
 
 	users := user.NewPostgresRepo(pool)
 	sessions := session.NewPostgresRepo(pool)
-	hasher := password.NewArgon2Hasher("PEPPER", 32, 64*1024, 3, 2)
+	hasher := password.NewArgon2Hasher(&password.Argon2Config{
+		Pepper:  "PEPPER",
+		KeyLen:  32,
+		Memory:  64 * 1024,
+		Time:    3,
+		Threads: 2,
+	})
 
 	clock := &clock.MockClock{CurrentTime: time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)}
 
 	publicKey, privateKey := newTestKeyPair(7)
-	signer, err := auth.NewTokenSigner(
-		clock,
-		privateKey,
-		"raggy-auth-test",
-		15*time.Minute,
-	)
+	signer, err := auth.NewTokenSigner(&auth.TokenSignerConfig{
+		PrivateKeyBase64: privateKey,
+		Issuer:           "raggy-auth-test",
+		TTL:              15 * time.Minute,
+	}, clock)
 	if err != nil {
 		panic(err)
 	}

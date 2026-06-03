@@ -12,23 +12,21 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-type Argon2Hasher struct {
-	pepper string
-
-	keyLen uint32
-
-	memory  uint32
-	time    uint32 // iterations
-	threads uint8  // parallelism
+type Argon2Config struct {
+	Pepper  string `env:"PASSWORD_PEPPER,required"`
+	KeyLen  uint32 `env:"KEY_LENGTH" envDefault:"32"`
+	Memory  uint32 `env:"MEMORY" envDefault:"65536"`
+	Time    uint32 `env:"TIME" envDefault:"3"`    // Iterations
+	Threads uint8  `env:"THREADS" envDefault:"4"` // Parallelism
 }
 
-func NewArgon2Hasher(pepper string, keyLen, memory, time uint32, threads uint8) *Argon2Hasher {
+type Argon2Hasher struct {
+	config *Argon2Config
+}
+
+func NewArgon2Hasher(config *Argon2Config) *Argon2Hasher {
 	return &Argon2Hasher{
-		pepper:  pepper,
-		keyLen:  keyLen,
-		memory:  memory,
-		time:    time,
-		threads: threads,
+		config: config,
 	}
 }
 
@@ -49,7 +47,7 @@ func (h *Argon2Hasher) Hash(plaintext string) string {
 }
 
 func (h *Argon2Hasher) hashWithSalt(salt []byte, plainttext string) []byte {
-	return argon2.IDKey([]byte(plainttext+h.pepper), salt, h.time, h.memory, h.threads, h.keyLen)
+	return argon2.IDKey([]byte(plainttext+h.config.Pepper), salt, h.config.Time, h.config.Memory, h.config.Threads, h.config.KeyLen)
 }
 
 func (h *Argon2Hasher) toPHCString(salt []byte, hash []byte) string {
@@ -57,7 +55,7 @@ func (h *Argon2Hasher) toPHCString(salt []byte, hash []byte) string {
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-		argon2.Version, h.memory, h.time, h.threads, b64Salt, b64Hash)
+		argon2.Version, h.config.Memory, h.config.Time, h.config.Threads, b64Salt, b64Hash)
 }
 
 func (h *Argon2Hasher) Verify(plaintext, encodedHash string) (bool, error) {
@@ -124,15 +122,13 @@ func (h *Argon2Hasher) Verify(plaintext, encodedHash string) (bool, error) {
 		return false, fmt.Errorf("Invalid Hash: threads parameter '%d' exceeds max allowed '%d'", threads, maxAllowedThreads)
 	}
 
-	v := Argon2Hasher{
-		pepper: h.pepper,
-
-		keyLen: uint32(len(hash)),
-
-		memory:  uint32(memory),
-		time:    uint32(time),
-		threads: uint8(threads),
-	}
+	v := NewArgon2Hasher(&Argon2Config{
+		Pepper:  h.config.Pepper,
+		KeyLen:  uint32(len(hash)),
+		Memory:  uint32(memory),
+		Time:    uint32(time),
+		Threads: uint8(threads),
+	})
 
 	computed := v.hashWithSalt(salt, plaintext)
 

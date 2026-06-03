@@ -27,11 +27,9 @@ type FieldError struct {
 func WriteProblem(w http.ResponseWriter, p ProblemDetails) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(p.Status)
-	json.NewEncoder(w).Encode(p) //nolint:errcheck
+	json.NewEncoder(w).Encode(p)
 }
 
-// ValidationProblem converts a validator.ValidationErrors into a 422 ProblemDetails
-// response and writes it. Returns false if err is not a validation error.
 func ValidationProblem(w http.ResponseWriter, err error) bool {
 	var ve validator.ValidationErrors
 	if !errors.As(err, &ve) {

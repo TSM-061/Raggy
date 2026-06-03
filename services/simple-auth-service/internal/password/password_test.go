@@ -11,11 +11,13 @@ import (
 // newTestHasher returns an Argon2Hasher with cheap-but-valid params suitable for tests.
 func newTestHasher(pepper string) *Argon2Hasher {
 	return &Argon2Hasher{
-		pepper:  pepper,
-		keyLen:  32,
-		memory:  64 * 1024,
-		time:    1,
-		threads: 1,
+		config: &Argon2Config{
+			Pepper:  pepper,
+			KeyLen:  32,
+			Memory:  64 * 1024,
+			Time:    1,
+			Threads: 1,
+		},
 	}
 }
 
@@ -171,4 +173,3 @@ func TestVerify_ParametersExceedMaximums(t *testing.T) {
 		})
 	}
 }
-

@@ -2,9 +2,11 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 
+	"github.com/TSM-061/Raggy/shared/problem"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/services"
 )
@@ -41,7 +43,7 @@ func newRefreshTokenCookie(value string, maxAge int) *http.Cookie {
 func (s *Server) setAuthCookies(w http.ResponseWriter, authResult *services.AuthResult) {
 	accessTokenCookie := newAccessTokenCookie(
 		authResult.Tokens.AccessToken,
-		int(s.config.AccessTokenTTL.Seconds()),
+		int(s.config.AccessTokenConfig.TTL.Seconds()),
 	)
 	refreshTokenCookie := newRefreshTokenCookie(
 		authResult.Tokens.RefreshToken,
@@ -65,18 +67,16 @@ type signinRequest struct {
 
 func (s *Server) HandleSignin(w http.ResponseWriter, r *http.Request) {
 	var body signinRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("invalid request body: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	if err := s.Validator.Struct(body); err != nil {
-		// TODO use specific mapping for validation errors
-		http.Error(w, "invalid request parameters", http.StatusBadRequest)
+	if err := s.validator.Struct(body); err != nil {
+		problem.WriteValidationDetails(r.Context(), w, err)
 		return
 	}
-	result, err := s.Auth.Signin(r.Context(), body.Username, body.Password)
+	result, err := s.auth.Signin(r.Context(), body.Username, body.Password)
 	if err != nil {
 		serviceerr.WriteHTTPError(w, err)
 		return
@@ -98,7 +98,7 @@ func (s *Server) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.Auth.Refresh(r.Context(), cookie.Value)
+	result, err := s.auth.Refresh(r.Context(), cookie.Value)
 	if err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}
@@ -114,7 +114,7 @@ func (s *Server) HandleSignout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Auth.Signout(r.Context(), cookie.Value); err != nil {
+	if err := s.auth.Signout(r.Context(), cookie.Value); err != nil {
 		http.Error(w, "failed to signout", http.StatusInternalServerError)
 	}
 

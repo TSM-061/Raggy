@@ -5,11 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"github.com/TSM-061/Raggy/shared/env"
+	"log/slog"
+	"os"
+
+	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/config"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/web"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"os"
 )
 
 func main() {
@@ -26,27 +28,27 @@ func main() {
 	rand.Read(passwordBytes)
 	password := base64.StdEncoding.EncodeToString(passwordBytes)
 
-	// setup application to complete registration
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		slog.Error("failed to load config", slog.Any("error", err))
+		os.Exit(1)
+	}
 
-	ctx := context.Background()
+	log := logger.New(cfg.LogLevel)
 
-	env := env.NewHelper(os.LookupEnv)
-	cfg := config.LoadConfig(env)
+	baseCtx := context.Background()
+	baseCtx = logger.ToContext(baseCtx, log)
 
-	pool, err := pgxpool.New(ctx, cfg.DbConnectionString)
+	pool, err := pgxpool.New(baseCtx, cfg.DbConnectionString)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to connect to database: %v", err)
 		os.Exit(1)
 	}
 	defer pool.Close()
 
-	server, err := web.NewServer(cfg, pool)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to initialize application: %v", err)
-		os.Exit(1)
-	}
+	server := web.NewServer(cfg, log, pool)
 
-	if _, err := server.Auth.Register(ctx, username, password); err != nil {
+	if _, err := server.Auth().Register(baseCtx, username, password); err != nil {
 		fmt.Fprintf(os.Stderr, "user registration failed: %v\n", err)
 		os.Exit(1)
 	}

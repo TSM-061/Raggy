@@ -4,16 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 
 	"github.com/TSM-061/Raggy/shared/auth"
+	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/password"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/session"
 	"github.com/TSM-061/Raggy/simple-auth-service/internal/user"
 )
 
-type AuthService struct {
+type Auth struct {
 	users user.Repo
 
 	hasher         *password.Argon2Hasher
@@ -29,9 +31,9 @@ func NewAuthService(
 	userRepo user.Repo,
 	hasher *password.Argon2Hasher,
 	signer *auth.TokenSigner,
-	sm *session.Manager) *AuthService {
+	sm *session.Manager) *Auth {
 
-	return &AuthService{
+	return &Auth{
 		users:          userRepo,
 		hasher:         hasher,
 		sessionManager: sm,
@@ -39,8 +41,9 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) Register(
+func (s *Auth) Register(
 	ctx context.Context, username string, password string) (*user.User, error) {
+	log := logger.FromContext(ctx)
 
 	if len(username) < user.MinUsernameLength ||
 		len(username) > user.MaxUsernameLength {
@@ -78,6 +81,7 @@ func (s *AuthService) Register(
 	if err != nil {
 		return nil, err
 	}
+
 	if userExists {
 		return nil, fmt.Errorf("%w: username in use", serviceerr.Conflict)
 	}
@@ -91,6 +95,10 @@ func (s *AuthService) Register(
 		return nil, err
 	}
 
+	log.InfoContext(ctx, "user registered",
+		slog.String("user_id", createdUser.ID.String()),
+	)
+
 	return createdUser, nil
 }
 
@@ -103,12 +111,11 @@ type TokenPair struct {
 	RefreshToken string
 }
 
-func (s *AuthService) Signin(
+func (s *Auth) Signin(
 	ctx context.Context, username string, plaintextPassword string) (*AuthResult, error) {
 
 	foundUser, err := s.users.GetByUsername(ctx, username)
 	if err != nil {
-		// TODO reflect this in test cases, no notfound and instead unauthorized
 		if errors.Is(err, serviceerr.NotFound) {
 			return nil, fmt.Errorf("%w: invalid credentials", serviceerr.Unauthorized)
 		}
@@ -138,7 +145,7 @@ func (s *AuthService) Signin(
 	}, nil
 }
 
-func (s *AuthService) Refresh(ctx context.Context, token string) (*AuthResult, error) {
+func (s *Auth) Refresh(ctx context.Context, token string) (*AuthResult, error) {
 	refreshResult, err := s.sessionManager.Refresh(ctx, token)
 	if err != nil {
 		return nil, err
@@ -157,6 +164,6 @@ func (s *AuthService) Refresh(ctx context.Context, token string) (*AuthResult, e
 	}, nil
 }
 
-func (s *AuthService) Signout(ctx context.Context, token string) error {
+func (s *Auth) Signout(ctx context.Context, token string) error {
 	return s.sessionManager.Delete(ctx, token)
 }

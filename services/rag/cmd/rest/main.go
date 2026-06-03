@@ -79,7 +79,6 @@ func main() {
 	<-runCtx.Done()
 
 	log.InfoContext(baseCtx, "http server shutting down")
-
 	shutdownCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
 	defer cancel()
 	server.Shutdown(shutdownCtx)

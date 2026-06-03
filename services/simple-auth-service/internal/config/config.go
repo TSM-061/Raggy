@@ -1,46 +1,30 @@
 package config
 
 import (
-	"time"
+	"log/slog"
 
+	"github.com/TSM-061/Raggy/shared/auth"
 	"github.com/TSM-061/Raggy/shared/env"
+	"github.com/TSM-061/Raggy/simple-auth-service/internal/password"
 )
 
 type Config struct {
-	Port               int
-	DbConnectionString string
+	Port               int        `env:"PORT" envDefault:"80"`
+	DbConnectionString string     `env:"DB_CONNECTION_STRING,required"`
+	LogLevel           slog.Level `env:"LOG_LEVEL" envDefault:"info"`
 
-	PasswordSecret string
+	Argon2Config *password.Argon2Config `env:",init" envPrefix:"ARGON2_"`
 
-	Argon2KeyLength uint32
-
-	Argon2Memory  uint32
-	Argon2Time    uint32
-	Argon2Threads uint8
-
-	RefreshTokenSecret string
-
-	// Base 64 representation of the key
-	AccessTokenPrivateKey string
-	AccessTokenTTL        time.Duration
+	AccessTokenConfig  *auth.TokenSignerConfig `env:",init" envPrefix:"ACCESS_TOKEN_"`
+	RefreshTokenSecret string                  `env:"REFRESH_TOKEN_SECRET,required"`
 }
 
-func LoadConfig(h *env.Helper) *Config {
-	return &Config{
-		Port:               h.GetInt("PORT", 80),
-		DbConnectionString: h.GetStringRequired("DB_CONNECTION_STRING"),
+func LoadConfig() (*Config, error) {
+	cfg := Config{}
 
-		PasswordSecret: h.GetStringRequired("PASSWORD_SECRET"),
-
-		// as recommended by RFC9106
-		Argon2KeyLength: uint32(h.GetInt("ARGON2_KEY_LENGTH", 32)),
-		Argon2Memory:    uint32(h.GetInt("ARGON2_MEMORY", 64*1024)),
-		Argon2Time:      uint32(h.GetInt("ARGON2_TIME", 3)),
-		Argon2Threads:   uint8(h.GetInt("ARGON2_THREADS", 4)),
-
-		RefreshTokenSecret: h.GetStringRequired("REFRESH_TOKEN_SECRET"),
-
-		AccessTokenPrivateKey: h.GetStringRequired("ACCESS_TOKEN_PRIVATE_KEY"),
-		AccessTokenTTL:        h.GetDuration("ACCESS_TOKEN_TTL", "15m"),
+	if err := env.Parse(&cfg); err != nil {
+		return nil, err
 	}
+
+	return &cfg, nil
 }
