@@ -5,35 +5,27 @@ import (
 	"fmt"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	s3Credentials "github.com/aws/aws-sdk-go-v2/credentials"
+	awscredentials "github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/s3blob"
 )
 
-type S3Config struct {
-	Bucket       string
-	Region       string
-	Endpoint     string
-	UsePathStyle bool
-	DisableSSL   bool
+type S3Credentials struct {
+	AccessKeyID     string `env:"ACCESS_KEY_ID,required,notEmpty"`
+	SecretAccessKey string `env:"SECRET_ACCESS_KEY,required,notEmpty"`
 }
 
-type S3Credentials struct {
-	AccessKeyID     string
-	SecretAccessKey string
+type S3Config struct {
+	Bucket       string `env:"BUCKET" envDefault:"uploads"`
+	Region       string `env:"REGION" envDefault:"ap-southeast-2"`
+	Endpoint     string `env:"ENDPOINT,required"`
+	UsePathStyle bool   `env:"USE_PATH_STYLE" envDefault:"true"`
+	DisableSSL   bool   `env:"DISABLE_SSL" envDefault:"false"`
 }
 
 func OpenS3Bucket(ctx context.Context, cred *S3Credentials, cfg *S3Config) (*blob.Bucket, error) {
-	if cred.SecretAccessKey == "" || cred.AccessKeyID == "" {
-		return nil, fmt.Errorf("credentials are required")
-	}
-
-	if cfg.Region == "" {
-		cfg.Region = "ap-southeast-2"
-	}
-
-	credentialsProvider := s3Credentials.NewStaticCredentialsProvider(
+	credentialsProvider := awscredentials.NewStaticCredentialsProvider(
 		cred.AccessKeyID,
 		cred.SecretAccessKey,
 		"",
@@ -47,7 +39,7 @@ func OpenS3Bucket(ctx context.Context, cred *S3Credentials, cfg *S3Config) (*blo
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, loadOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load aws config: %w", err)
+		return nil, fmt.Errorf("load aws config: %w", err)
 	}
 
 	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
@@ -57,7 +49,7 @@ func OpenS3Bucket(ctx context.Context, cred *S3Credentials, cfg *S3Config) (*blo
 
 	bucket, err := s3blob.OpenBucket(ctx, client, cfg.Bucket, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open s3 bucket: %w", err)
+		return nil, fmt.Errorf("open s3 bucket: %w", err)
 	}
 
 	return bucket, nil
