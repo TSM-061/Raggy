@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 
+	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/google/uuid"
 )
@@ -29,14 +31,29 @@ func (m *Middleware) WrapFn(nextFunc http.HandlerFunc) http.Handler {
 
 func (m *Middleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		log := logger.FromContext(ctx)
+
 		cookie, err := r.Cookie(AccessTokenCookieName)
 		if err != nil {
+			log.WarnContext(
+				ctx,
+				"failed to verify access token",
+				slog.Any("error", err),
+			)
+
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
 		claims, err := m.verifier.Verify(cookie.Value)
 		if err != nil {
+			log.WarnContext(
+				ctx,
+				"failed to verify access token",
+				slog.String("cookie_value", cookie.Value),
+				slog.Any("error", err),
+			)
 			serviceerr.WriteHTTPError(w, err)
 			return
 		}
@@ -47,7 +64,7 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), userIDContextKey, userID)
+		ctx = context.WithValue(ctx, userIDContextKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

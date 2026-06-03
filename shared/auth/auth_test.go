@@ -3,24 +3,22 @@ package auth
 import (
 	"bytes"
 	"crypto/ed25519"
-	"encoding/base64"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/TSM-061/Raggy/shared/clock"
-	"github.com/TSM-061/Raggy/shared/configerr"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-func testKeyPair(seedByte byte) (ed25519.PublicKey, string) {
+func testKeyPair(seedByte byte) (ed25519.PublicKey, ed25519.PrivateKey) {
 	seed := bytes.Repeat([]byte{seedByte}, ed25519.SeedSize)
 	privateKey := ed25519.NewKeyFromSeed(seed)
 	publicKey := privateKey.Public().(ed25519.PublicKey)
 
-	return publicKey, base64.StdEncoding.EncodeToString(privateKey)
+	return publicKey, privateKey
 }
 
 func TestSignerAndVerifierIntegration(t *testing.T) {
@@ -43,10 +41,11 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				t.Helper()
 
 				clk := &clock.MockClock{CurrentTime: fixedNow}
-				signer, err := NewTokenSigner(clk, validPrivateKey, "raggy-test", 15*time.Minute)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
+				signer := NewTokenSigner(&TokenSignerConfig{
+					PrivateKey: validPrivateKey,
+					Issuer:     "raggy-test",
+					TTL:        15 * time.Minute,
+				}, clk)
 				token, err := signer.Sign(userID)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
@@ -81,10 +80,11 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				t.Helper()
 
 				clk := &clock.MockClock{CurrentTime: fixedNow}
-				signer, err := NewTokenSigner(clk, validPrivateKey, "raggy-test", 15*time.Minute)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
+				signer := NewTokenSigner(&TokenSignerConfig{
+					PrivateKey: validPrivateKey,
+					Issuer:     "raggy-test",
+					TTL:        15 * time.Minute,
+				}, clk)
 				token, err := signer.Sign(userID)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
@@ -174,10 +174,11 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 				// already expired by the time Verify is called.
 				pastTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 				clk := &clock.MockClock{CurrentTime: pastTime}
-				signer, err := NewTokenSigner(clk, validPrivateKey, "raggy-test", 1*time.Second)
-				if err != nil {
-					t.Fatalf("NewSigner() error = %v", err)
-				}
+				signer := NewTokenSigner(&TokenSignerConfig{
+					PrivateKey: validPrivateKey,
+					Issuer:     "raggy-test",
+					TTL:        1 * time.Second,
+				}, clk)
 				token, err := signer.Sign(userID)
 				if err != nil {
 					t.Fatalf("Sign() error = %v", err)
@@ -219,35 +220,17 @@ func TestSignerAndVerifierIntegration(t *testing.T) {
 	}
 }
 
-func TestNewSigner_InvalidKey(t *testing.T) {
+func TestNewSigner_ValidConfig(t *testing.T) {
 	clk := &clock.MockClock{CurrentTime: time.Date(2026, 4, 26, 12, 0, 0, 0, time.UTC)}
 
-	tests := []struct {
-		name string
-		key  string
-	}{
-		{
-			name: "not valid base64",
-			key:  "not-valid-base64!!!",
-		},
-		{
-			name: "wrong key size",
-			key:  base64.StdEncoding.EncodeToString([]byte("too-short")),
-		},
-	}
+	_, privateKey := testKeyPair(3)
+	signer := NewTokenSigner(&TokenSignerConfig{
+		PrivateKey: privateKey,
+		Issuer:     "raggy-test",
+		TTL:        15 * time.Minute,
+	}, clk)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			signer, err := NewTokenSigner(clk, tt.key, "raggy-test", 15*time.Minute)
-
-			if signer != nil {
-				t.Fatal("NewSigner() signer = non-nil, want nil")
-			}
-
-			var configErr *configerr.ConfigError
-			if !errors.As(err, &configErr) {
-				t.Fatalf("NewSigner() error = %v, want *configerr.ConfigError", err)
-			}
-		})
+	if signer == nil {
+		t.Fatal("NewSigner() signer = nil, want non-nil")
 	}
 }
