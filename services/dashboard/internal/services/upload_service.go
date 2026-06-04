@@ -3,16 +3,18 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/TSM-061/Raggy/dashboard/internal/upload"
+	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"gocloud.dev/blob"
 )
 
-type UploadService struct {
+type Upload struct {
 	uploads   upload.Repo
 	bucket    *blob.Bucket
 	urlTTL    time.Duration
@@ -24,8 +26,8 @@ func NewUploadService(
 	bucket *blob.Bucket,
 	urlTTL time.Duration,
 	v *validator.Validate,
-) *UploadService {
-	return &UploadService{
+) *Upload {
+	return &Upload{
 		uploads:   uploads,
 		bucket:    bucket,
 		urlTTL:    urlTTL,
@@ -36,7 +38,6 @@ func NewUploadService(
 const (
 	defaultUploadsPage     = 1
 	defaultUploadsPageSize = 20
-	maxUploadsPageSize     = 100
 )
 
 type CreateUploadCommand struct {
@@ -53,12 +54,14 @@ type CreateUploadResult struct {
 	Upload             *upload.Upload
 }
 
-func (s *UploadService) CreateUpload(
+func (s *Upload) CreateUpload(
 	ctx context.Context,
 	req *CreateUploadCommand,
 ) (*CreateUploadResult, error) {
+	log := logger.FromContext(ctx)
+
 	if req == nil {
-		return nil, fmt.Errorf("%w: request is required", serviceerr.InvalidInput)
+		return nil, fmt.Errorf("%w: req is nil", serviceerr.InvalidInput)
 	}
 
 	if err := s.validator.Struct(req); err != nil {
@@ -73,7 +76,6 @@ func (s *UploadService) CreateUpload(
 		SizeBytes:    req.SizeBytes,
 		Status:       upload.StatusPending,
 	}
-
 	if err := s.uploads.Create(ctx, upload); err != nil {
 		return nil, err
 	}
@@ -83,10 +85,16 @@ func (s *UploadService) CreateUpload(
 		Expiry: s.urlTTL,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign upload URL: %w", err)
+		return nil, fmt.Errorf("presign upload url: %w", err)
 	}
 
 	expiresAt := time.Now().Add(s.urlTTL).UTC()
+
+	log.InfoContext(
+		ctx, "upload successfully persisted",
+		slog.String("upload_id", upload.ID.String()),
+		slog.String("uploaded_by", upload.UploadedBy.String()),
+	)
 
 	return &CreateUploadResult{
 		UploadURL:          u,
@@ -95,20 +103,31 @@ func (s *UploadService) CreateUpload(
 	}, nil
 }
 
-func (s *UploadService) UpdateStatus(
+func (s *Upload) UpdateStatus(
 	ctx context.Context,
 	id uuid.UUID,
 	status upload.Status,
 ) error {
+	log := logger.FromContext(ctx)
+
 	if id == uuid.Nil {
-		return fmt.Errorf("%w: upload id is required", serviceerr.InvalidInput)
+		return fmt.Errorf("%w: id is uuid.Nil", serviceerr.InvalidInput)
 	}
 
 	if !status.IsValid() {
-		return fmt.Errorf("%w: invalid upload status '%s'", serviceerr.InvalidInput, status)
+		return fmt.Errorf("%w: upload status '%s'", serviceerr.InvalidInput, status)
 	}
 
-	return s.uploads.UpdateStatus(ctx, id, status)
+	if err := s.uploads.UpdateStatus(ctx, id, status); err != nil {
+		return err
+	}
+
+	log.InfoContext(ctx, "upload status updated",
+		slog.String("upload_id", id.String()),
+		slog.String("status", string(status)),
+	)
+
+	return nil
 }
 
 type ListUploadsQuery struct {
@@ -127,33 +146,44 @@ type ListUploadsResult struct {
 	Total      int64
 }
 
-func (s *UploadService) ListUploads(
+func (s *Upload) ListUploads(
 	ctx context.Context,
-	req *ListUploadsQuery,
+	query *ListUploadsQuery,
 ) (*ListUploadsResult, error) {
-	if req == nil {
-		return nil, fmt.Errorf("%w: request is required", serviceerr.InvalidInput)
+	log := logger.FromContext(ctx)
+
+	if query == nil {
+		return nil, fmt.Errorf("%w: request is nil", serviceerr.InvalidInput)
 	}
 
-	if err := s.validator.Struct(req); err != nil {
+	if err := s.validator.Struct(query); err != nil {
 		return nil, fmt.Errorf("%w: %v", serviceerr.InvalidInput, err)
 	}
 
-	page := req.Page
+	page := query.Page
 	if page == 0 {
 		page = defaultUploadsPage
 	}
 
-	pageSize := req.PageSize
+	pageSize := query.PageSize
 	if pageSize == 0 {
 		pageSize = defaultUploadsPageSize
 	}
 
 	offset := (page - 1) * pageSize
+
 	uploads, total, err := s.uploads.List(ctx, pageSize, offset)
 	if err != nil {
 		return nil, err
 	}
+
+	log.InfoContext(
+		ctx,
+		"uploads listed",
+		slog.Int("page_size", pageSize),
+		slog.Int("count", len(uploads)),
+		slog.Int64("total_count", total),
+	)
 
 	return &ListUploadsResult{
 		Uploads:    uploads,
@@ -163,26 +193,26 @@ func (s *UploadService) ListUploads(
 	}, nil
 }
 
-func (s *UploadService) GetUploadByID(
+func (s *Upload) GetUploadByID(
 	ctx context.Context,
-	req *GetUploadByIDQuery,
+	query *GetUploadByIDQuery,
 ) (*upload.Upload, error) {
-	if req == nil {
-		return nil, fmt.Errorf("%w: request is required", serviceerr.InvalidInput)
+	if query == nil {
+		return nil, fmt.Errorf("%w: req is nil", serviceerr.InvalidInput)
 	}
 
-	if err := s.validator.Struct(req); err != nil {
+	if err := s.validator.Struct(query); err != nil {
 		return nil, fmt.Errorf("%w: %v", serviceerr.InvalidInput, err)
 	}
 
-	return s.uploads.GetByID(ctx, req.UploadID)
+	return s.uploads.GetByID(ctx, query.UploadID)
 }
 
 type DeleteUploadCommand struct {
 	UploadID uuid.UUID `validate:"required"`
 }
 
-func (s *UploadService) DeleteUpload(ctx context.Context, req *DeleteUploadCommand) error {
+func (s *Upload) DeleteUpload(ctx context.Context, req *DeleteUploadCommand) error {
 	if req == nil {
 		return fmt.Errorf("%w: request is required", serviceerr.InvalidInput)
 	}

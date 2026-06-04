@@ -2,108 +2,79 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"log"
-	"net/http"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/TSM-061/Raggy/dashboard/internal/app"
 	"github.com/TSM-061/Raggy/dashboard/internal/config"
-	"github.com/TSM-061/Raggy/dashboard/internal/events"
+	"github.com/TSM-061/Raggy/dashboard/internal/consumer"
+	"github.com/TSM-061/Raggy/dashboard/internal/services"
+	"github.com/TSM-061/Raggy/dashboard/internal/upload"
 	"github.com/TSM-061/Raggy/dashboard/internal/web"
-	"github.com/TSM-061/Raggy/shared/env"
-	"github.com/TSM-061/Raggy/shared/message/upload"
+	"github.com/TSM-061/Raggy/shared/auth"
+	"github.com/TSM-061/Raggy/shared/clock"
+	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/storage"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/twmb/franz-go/pkg/kgo"
 )
 
-var uploadProfiles = []string{
-	string(upload.ProjectReportMd),
-}
-
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		slog.Error("failed to load config", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	log := logger.New(cfg.LogLevel)
+
+	baseCtx := context.Background()
+	baseCtx = logger.ToContext(baseCtx, log)
+
+	runCtx, stop := signal.NotifyContext(
+		baseCtx,
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
 	defer stop()
 
-	envHelper := env.NewHelper(os.LookupEnv)
-	cfg := config.LoadConfig(envHelper)
-
-	pool, err := pgxpool.New(ctx, cfg.DbConnectionString)
+	pool, err := pgxpool.New(baseCtx, cfg.DbConnectionString)
 	if err != nil {
-		panic("failed to open database connection")
+		log.Error("failed to open database connection pool", slog.Any("error", err))
+		os.Exit(1)
 	}
 	defer pool.Close()
 
-	bucket, err := storage.OpenS3Bucket(ctx, cfg.S3Credentials, cfg.S3Config)
+	bucket, err := storage.OpenS3Bucket(baseCtx, cfg.S3Credentials, cfg.S3Config)
 	if err != nil {
-		panic(err)
+		log.Error("failed to open bucket", slog.Any("error", err))
+		os.Exit(1)
 	}
 	defer bucket.Close()
 
-	kafkaClient, err := kgo.NewClient(
-		kgo.SeedBrokers("kafka:9092"),
-		kgo.ConsumerGroup("dashboard-service"),
-		kgo.ConsumeTopics("s3-events"),
-	)
+	uploads := upload.NewPostgresRepo(pool)
+	uploadService := services.NewUploadService(uploads, bucket, cfg.UploadURLTTL, validator.New())
+
+	consumer, err := consumer.New(cfg.ConsumerConfig, uploadService)
 	if err != nil {
-		log.Fatalf("failed to create kafka client: %v", err)
+		log.Error("failed to create kafka consumer", slog.Any("error", err))
+		os.Exit(1)
 	}
-	defer kafkaClient.Close()
+	defer consumer.Close()
 
-	application := app.New(cfg, pool, bucket, uploadProfiles, validator.New())
+	clock := clock.LiveClock{}
+	verifier := auth.NewTokenVerifier(&clock, cfg.AccessTokenPublicKey)
+	auth := auth.NewMiddleware(verifier)
+	server := web.NewServer(cfg, log, auth, uploadService)
 
-	server, err := web.NewServer(cfg, application)
-	if err != nil {
-		panic(err)
-	}
+	go consumer.Start(runCtx)
+	go server.Start(runCtx, stop)
+	<-runCtx.Done()
 
-	mux := http.NewServeMux()
-	uploadHandler := server.Auth().Wrap(http.HandlerFunc(server.HandleUpload))
-	listUploadsHandler := server.Auth().Wrap(http.HandlerFunc(server.HandleListUploads))
-	deleteUploadHandler := server.Auth().Wrap(http.HandlerFunc(server.HandleDeleteUpload))
-	mux.Handle("POST /api/uploads", uploadHandler)
-	mux.Handle("GET /api/uploads", listUploadsHandler)
-	mux.Handle("DELETE /api/uploads/{id}", deleteUploadHandler)
-
-	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: mux,
-	}
-
-	consumer := events.NewConsumer(kafkaClient, application)
-	go consumer.Start(ctx)
-
-	go func() {
-		log.Printf("Rest listening on :%d", cfg.Port)
-
-		if err := httpServer.ListenAndServe(); err != nil {
-			isStopping := errors.Is(err, http.ErrServerClosed)
-
-			if !isStopping {
-				log.Fatalf("(Rest) Error Starting: %v", err)
-			}
-		}
-	}()
-
-	<-ctx.Done() // wait for shutdown signal
-
-	log.Println("Shutting down...")
-
-	shutdownCtx, cancelShutdown := context.WithTimeout(
-		context.Background(),
-		5*time.Second,
-	)
-	defer cancelShutdown()
-
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("HTTP shutdown error: %v", err)
-	} else {
-		log.Println("HTTP server stopped successfully.")
-	}
+	log.InfoContext(baseCtx, "http server shutting down")
+	shutdownCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+	defer cancel()
+	server.Shutdown(shutdownCtx)
 }

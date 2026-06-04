@@ -1,4 +1,4 @@
-package events
+package consumer
 
 type S3Record struct {
 	EventName string `json:"eventName"`
@@ -14,6 +14,6 @@ type S3Record struct {
 	} `json:"s3"`
 }
 
-type MinioPayload struct {
+type S3Message struct {
 	Records []S3Record `json:"Records"`
 }

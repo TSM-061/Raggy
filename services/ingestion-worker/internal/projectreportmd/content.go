@@ -6,7 +6,7 @@ type Content struct {
 	Title      string `json:"title"`
 	Subject    string `json:"subject"`
 	Subheading string `json:"subheading"`
-	Content    string `json:"content"`
+	Text       string `json:"text"`
 }
 
 func ContentAsString(context Content) string {
@@ -15,6 +15,6 @@ func ContentAsString(context Content) string {
 		context.Title,
 		context.Subject,
 		context.Subheading,
-		context.Content,
+		context.Text,
 	)
 }

@@ -53,6 +53,8 @@ type ChunkInformation struct {
 }
 
 func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
+	// TODO check if chunk if file is completely processed and notify on uploads topic
+
 	log := logger.FromContext(ctx)
 
 	if info.ChunkIndex < 0 || info.ChunkIndex >= info.ChunkTotal {

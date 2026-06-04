@@ -9,6 +9,7 @@ import (
 	"github.com/TSM-061/Raggy/rag/internal/rag"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/message/chunk"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -57,16 +58,10 @@ func (c *Runner) Start(ctx context.Context) {
 		}
 
 		for record := range fetches.RecordsAll() {
+			ctx = telemetry.WithKafkaMeta(ctx, record)
 
 			if err := c.ProcessMessage(ctx, record); err != nil {
-				log.ErrorContext(
-					ctx,
-					"error processing message",
-					slog.String("kafka_topic", record.Topic),
-					slog.Int("kafka_partition", int(record.Partition)),
-					slog.Int64("kafka_offset", record.Offset),
-					slog.Any("error", err),
-				)
+				log.ErrorContext(ctx, "error processing message", slog.Any("error", err))
 			}
 		}
 	}
@@ -90,14 +85,10 @@ func (c *Runner) ProcessMessage(ctx context.Context, record *kgo.Record) error {
 	switch msg.Type {
 	case chunk.StreamEvent:
 		if err := c.HandleChunkStream(ctx, msg); err != nil {
-			return fmt.Errorf("upload %s: %w", msg.UploadID, err)
+			return err
 		}
 	default:
-		log.DebugContext(
-			ctx,
-			"ignoring unsupported chunk message",
-			slog.String("type", string(msg.Type)),
-		)
+		log.DebugContext(ctx, "ignoring unsupported chunk message")
 	}
 
 	return nil

@@ -24,7 +24,7 @@ type createUploadRequest struct {
 
 type createUploadResponse struct {
 	Upload    uploadResponse `json:"upload"`
-	UploadURL string `json:"uploadUrl"`
+	UploadURL string         `json:"uploadUrl"`
 }
 
 type listUploadsResponse struct {
@@ -70,14 +70,13 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.validator.Struct(body); err != nil {
-
 		if !ValidationProblem(w, err) {
 			serviceerr.WriteHTTPError(w, err)
 		}
 		return
 	}
 
-	result, err := s.Application.UploadService.CreateUpload(r.Context(), &services.CreateUploadCommand{
+	result, err := s.uploads.CreateUpload(r.Context(), &services.CreateUploadCommand{
 		UploadedBy:   uploaderID,
 		OriginalName: body.OriginalName,
 		ContentType:  body.ContentType,
@@ -113,7 +112,7 @@ func (s *Server) HandleListUploads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.Application.UploadService.ListUploads(r.Context(), &services.ListUploadsQuery{
+	result, err := s.uploads.ListUploads(r.Context(), &services.ListUploadsQuery{
 		Page:     page,
 		PageSize: pageSize,
 	})
@@ -146,7 +145,7 @@ func (s *Server) HandleDeleteUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.Application.UploadService.DeleteUpload(r.Context(), &services.DeleteUploadCommand{
+	err = s.uploads.DeleteUpload(r.Context(), &services.DeleteUploadCommand{
 		UploadID: uploadID,
 	})
 	if err != nil {
