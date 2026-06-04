@@ -15,18 +15,20 @@ services:
       - "80:80"
     volumes:
       - ../nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - auth-service
     networks:
       default:
         aliases:
           - s3.localhost
     labels:
       - dev.dozzle.group=infrastructure
+    depends_on:
+      - auth-service
+      - dashboard-service
+      - rag-service
+      - frontend
 
   s3:
     image: minio/minio
-    container_name: s3
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -44,7 +46,6 @@ services:
 
   s3-init:
     image: minio/mc
-    container_name: s3-init
     volumes:
       - ./s3-init.sh:/s3-init.sh
     entrypoint: [ "/bin/sh", "/s3-init.sh" ]
