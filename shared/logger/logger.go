@@ -14,9 +14,13 @@ var loggerKey contextKey = contextKey{}
 var defaultLogger = New(slog.LevelInfo)
 
 func New(level slog.Level) *slog.Logger {
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
-	}))
+	})
+
+	contextHandler := NewContextHandler(handler)
+
+	return slog.New(contextHandler)
 }
 
 func ToContext(ctx context.Context, logger *slog.Logger) context.Context {
