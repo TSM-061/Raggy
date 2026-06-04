@@ -1,41 +1,37 @@
-# Raggy: An Architectural Playground for Event-Driven Go Microservices
+# Raggy - A RAG Pipeline
 
-Raggy is a work-in-progress project I designed to develop my software engineering skills and further my learning with golang and AI tools.
+Raggy is a prototype RAG (Retrieval-Augmented Generation) pipeline built to explore distributed system design. The project applies enterprise-grade principles, using a microservice architecture to isolate core domains and leveraging Kafka to handle heavy document processing workloads asynchronously.
 
-Primary Goals:
-- Pure Microservices 
-- Event-driven patterns with Apache Kafka
-- Retrieval-Augmented Generation (RAG) pipelines
+> [!NOTE]
+> This project is currently a Work in Progress. Core functionality is implemented, additional features are still being integrated.
 
-Instead of bundling everything into a single application, this project breaks the system down into decoupled services to explore how microservice architectures handle data isolation, fault tolerance, and cross-service observability.
+<br>
 
-## Learning Objectives & Architecture Exploration
+![Raggy High Level Service Map](.assets/high-level-infra-overview.svg)
+_A high-level overview of the services that make up the pipeline._
 
-This repository serves as a practical space for me to step out of my comfort zone and experiment with advanced architectural patterns:
+<br>
 
-### 1. Event-Driven Architectures 
-Instead of building a traditional, synchronous system where services are tightly coupled via REST APIs, I integrated Apache Kafka to explore asynchronous messages. This ensures that slow, heavy data-parsing tasks occur completely out-of-band, preventing data processing spikes from ever blocking user-facing web services or degrading the core user experience.
+![Auth Service](.assets/header-auth-service.svg)
 
-### 2. Bounded Contexts (Domain-Driven Design) & Scaling Workloads (CPU vs. I/O)
-A common trap in microservice design is creating a "distributed monolith" where services are dependent on one another through RPC/HTTP. 
+**Session Management:** Generates and manages Access and Refresh tokens to handle authentication and user sessions.
 
-I used this project to practice strict domain isolation, decoupling the I/O-bound services from CPU-bound work. 
+**Stateless:** Implements asymmetric public/private key token verification so downstream services can verify identity without querying a central database or the authentication service.
 
-- I/O-bound: HTTP services such as dashboard and RAG (query)
-- CPU-bound: ingestion, parsing, chunking and other processing of files
+![Dashboard Service](.assets/header-dashboard-service.svg)
 
-This structural boundary allows each microservice to scale horizontally and independently based on its specific compute or storage workload constraints.
+**Process Orchestration:** Provides the primary interface allowing document uploads to be created and scheduled for pipeline processing.
 
-### 3. Centralized Logging & Observability
-In a distributed system, debugging across multiple independent services is incredibly difficult without consistent telemetry. I used this project to learn how to utilize structured logs for easy aggregation, enabling the use of observability tools in the future. 
+**Real-time Feedback:** Tracks and surfaces metrics regarding processing states and ingestion status directly to the client.
 
-### Tools Involved
+![Ingestion Worker](.assets/header-ingestion-worker.svg)
 
-- Docker
-- Golang
-- Nginx
-- Kafka
-- S3 Object Store
-- Postgresql Databases (Standard & PgVector)
-- React 
-- Gemini
+**Data Extraction:** Pulls raw files staged in AWS S3 storage as soon as an ingestion job triggers.
+
+**Parsing & Chunking:** Processes the contents, breaking the raw input into chunks tailored for downstream vector embedding.
+
+![RAG Service](.assets/header-rag-service.svg)
+
+**Embedding Generation:** Converts text chunks into vector representations, handling the embeddings process either locally or via external APIs like Gemini.
+
+**Contextual Querying:** Orchestrates the core RAG logic by retrieving relevant document chunks based on a user's prompt and feeding that grounded context into the LLM API to generate accurate answers.
