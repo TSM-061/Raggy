@@ -14,6 +14,7 @@ services:
     environment:
       ENV: development
       DB_CONNECTION_STRING: postgres://postgres:auth_password@auth-db:5432/postgres
+      ARGON2_PASSWORD_PEPPER: raggy-secret-pepper-2026
     volumes:
       - "../:/app"
       - auth_service_pkg:/go/pkg/mod
@@ -30,9 +31,11 @@ services:
       ENV: development
       DB_CONNECTION_STRING: postgres://postgres:dashboard_password@dashboard-db:5432/postgres
       KAFKA_SEED_BROKERS: "kafka:9092"
+
       S3_ENDPOINT: "http://s3.localhost"
       S3_ACCESS_KEY_ID: admin
       S3_SECRET_ACCESS_KEY: miniopassword
+
       ACCESS_TOKEN_PUBLIC_KEY: 0qw/WOYvsmc3TJKKebk3vawfmo8aKGM6lpFchb6XviI=
     volumes:
       - "../:/app"
@@ -48,6 +51,7 @@ services:
       dockerfile: services/ingestion-worker/dev.Dockerfile
     environment:
       KAFKA_SEED_BROKERS: "kafka:9092"
+
       S3_ENDPOINT: "http://s3.localhost"
       S3_ACCESS_KEY_ID: admin
       S3_SECRET_ACCESS_KEY: miniopassword
