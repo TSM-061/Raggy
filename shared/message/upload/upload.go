@@ -2,11 +2,11 @@ package upload
 
 const TopicName string = "uploads"
 
-type EventType string
+type MessageType string
 
 const (
-	Completed EventType = "upload.completed"
-	Error     EventType = "upload.failed"
+	Completed MessageType = "upload.completed"
+	Error     MessageType = "upload.failed"
 )
 
 type ProfileHint string
@@ -18,14 +18,14 @@ const (
 type CompletedMessage struct {
 	UploadID string `json:"uploadId"`
 
-	EventType   EventType   `json:"eventName"`
+	Type        MessageType `json:"type"`
 	ProfileHint ProfileHint `json:"profileHint"`
 }
 
 type ErrorMessage struct {
 	UploadID string `json:"uploadId"`
 
-	EventType EventType `json:"eventName"`
-	Stage     string    `json:"stage"`
-	Error     string    `json:"error"`
+	Type  MessageType `json:"type"`
+	Stage string      `json:"stage"`
+	Error string      `json:"error"`
 }
