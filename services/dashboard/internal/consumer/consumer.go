@@ -9,11 +9,15 @@ import (
 	"github.com/TSM-061/Raggy/dashboard/internal/services"
 	"github.com/TSM-061/Raggy/dashboard/internal/upload"
 	"github.com/TSM-061/Raggy/shared/logger"
+	"github.com/TSM-061/Raggy/shared/message/s3"
 	uploadmsg "github.com/TSM-061/Raggy/shared/message/upload"
 	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel"
 )
+
+var tracer = otel.Tracer("github.com/TSM-061/Raggy/dashboard/internal/consumer")
 
 type Config struct {
 	MaxPollRecords int      `env:"MAX_POLL_RECORDS" envDefault:"10"`
@@ -31,6 +35,7 @@ func New(cfg *Config, uploads *services.Upload) (*Runner, error) {
 		kgo.SeedBrokers(cfg.SeedBrokers...),
 		kgo.ConsumerGroup("dashboard-service"),
 		kgo.ConsumeTopics("s3-events"),
+		kgo.WithHooks(telemetry.NewKafkaHook()),
 	)
 	if err != nil {
 		return nil, err
@@ -59,34 +64,40 @@ func (r *Runner) Start(ctx context.Context) {
 		}
 
 		for record := range fetches.RecordsAll() {
-			ctx = telemetry.WithKafkaMeta(ctx, record)
+			recordCtx := telemetry.Extract(ctx, record)
+			recordCtx, span := tracer.Start(recordCtx, "Upload.Process")
 
-			if err := r.ProcessMessage(ctx, record); err != nil {
-				log.ErrorContext(ctx, "error processing message", slog.Any("error", err))
+			if errs := r.processMessage(recordCtx, record); len(errs) > 0 {
+				log.ErrorContext(recordCtx, "error processing message", slog.Any("errors", errs))
 			}
+
+			span.End()
 		}
 	}
 }
 
-func (r *Runner) ProcessMessage(ctx context.Context, record *kgo.Record) error {
-	var msg S3Message
-
-	if err := json.Unmarshal(record.Value, &msg); err != nil {
-		return fmt.Errorf("unmarhsal s3 message: %w", err)
-	}
+func (r *Runner) processMessage(ctx context.Context, record *kgo.Record) []error {
+	var msg s3.Message
 
 	errs := make([]error, 0)
 
+	if err := json.Unmarshal(record.Value, &msg); err != nil {
+		errs = append(errs, fmt.Errorf("unmarhsal s3 message: %w", err))
+		return errs
+	}
+
 	for _, s3Record := range msg.Records {
-		if err := r.handleS3Record(ctx, s3Record); err != nil {
+		recordCtx := telemetry.ExtractFromS3Message(ctx, s3Record)
+
+		if err := r.handleS3Record(recordCtx, s3Record); err != nil {
 			errs = append(errs, err)
 		}
 	}
 
-	return nil
+	return errs
 }
 
-func (r *Runner) handleS3Record(ctx context.Context, s3Record S3Record) error {
+func (r *Runner) handleS3Record(ctx context.Context, s3Record s3.Record) error {
 	log := logger.FromContext(ctx)
 
 	uploadID, err := uuid.Parse(s3Record.S3.Object.Key)
@@ -107,20 +118,28 @@ func (r *Runner) handleS3Record(ctx context.Context, s3Record S3Record) error {
 		return fmt.Errorf("update upload status: %w", err)
 	}
 
-	evt := uploadmsg.CompletedMessage{
-		Type:        uploadmsg.Completed,
-		UploadID:    uploadID.String(),
-		ProfileHint: uploadmsg.ProjectReportMd,
+	if err := r.produceCompletedMsg(ctx, uploadID); err != nil {
+		return err
 	}
-	eventJson, err := json.Marshal(evt)
+
+	return nil
+}
+
+func (r *Runner) produceCompletedMsg(ctx context.Context, id uuid.UUID) error {
+	event, err := json.Marshal(
+		uploadmsg.CompletedMessage{
+			Type:        uploadmsg.Completed,
+			UploadID:    id.String(),
+			ProfileHint: uploadmsg.ProjectReportMd,
+		})
 	if err != nil {
 		return fmt.Errorf("marshal %q message: %w", uploadmsg.Completed, err)
 	}
 
 	record := &kgo.Record{
 		Topic: uploadmsg.TopicName,
-		Key:   []byte(evt.UploadID),
-		Value: eventJson,
+		Key:   []byte(id.String()),
+		Value: event,
 	}
 
 	if err := r.client.ProduceSync(ctx, record).FirstErr(); err != nil {
@@ -131,5 +150,9 @@ func (r *Runner) handleS3Record(ctx context.Context, s3Record S3Record) error {
 }
 
 func (c *Runner) Close() {
+	if c.client == nil {
+		return
+	}
+
 	c.client.Close()
 }
