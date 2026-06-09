@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/TSM-061/Raggy/shared/telemetry"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type ContextHandler struct {
@@ -32,9 +33,16 @@ func (h *ContextHandler) Handle(ctx context.Context, r slog.Record) error {
 		return h.next.Handle(ctx, r)
 	}
 
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		r.AddAttrs(
+			slog.String("trace_id", span.TraceID().String()),
+			slog.String("span_id", span.SpanID().String()),
+		)
+	}
+
 	// add kafka metadata on error messages
 	if r.Level == slog.LevelError {
-		if meta, ok := telemetry.KafkaMetaFromContext(ctx); ok {
+		if meta, ok := telemetry.MetadataFromContext(ctx); ok {
 			r.AddAttrs(slog.Attr{
 				Key: "kafka",
 				Value: slog.GroupValue(
