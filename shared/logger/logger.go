@@ -15,7 +15,7 @@ var defaultLogger = New(slog.LevelInfo)
 
 func New(level slog.Level) *slog.Logger {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: level,
 	})
 
 	contextHandler := NewContextHandler(handler)
