@@ -107,6 +107,7 @@ func (s *Server) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	result, err := s.auth.Refresh(r.Context(), cookie.Value)
 	if err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	s.setAuthCookies(w, result)
