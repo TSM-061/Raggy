@@ -15,6 +15,8 @@ services:
       ENV: development
       DB_CONNECTION_STRING: postgres://postgres:auth_password@auth-db:5432/postgres
       ARGON2_PASSWORD_PEPPER: raggy-secret-pepper-2026
+
+      TELEMETRY_COLLECTOR_ENDPOINT: tempo:4317
     volumes:
       - "../:/app"
       - auth_service_pkg:/go/pkg/mod
@@ -37,6 +39,9 @@ services:
       S3_SECRET_ACCESS_KEY: miniopassword
 
       ACCESS_TOKEN_PUBLIC_KEY: 0qw/WOYvsmc3TJKKebk3vawfmo8aKGM6lpFchb6XviI=
+
+      TELEMETRY_COLLECTOR_ENDPOINT: tempo:4317
+
     volumes:
       - "../:/app"
       - dashboard_service_pkg:/go/pkg/mod
@@ -55,6 +60,8 @@ services:
       S3_ENDPOINT: "http://s3.localhost"
       S3_ACCESS_KEY_ID: admin
       S3_SECRET_ACCESS_KEY: miniopassword
+
+      TELEMETRY_COLLECTOR_ENDPOINT: tempo:4317
     volumes:
       - "../:/app"
       - ingestion_worker_pkg:/go/pkg/mod
@@ -71,7 +78,10 @@ services:
       ENV: development
       DB_CONNECTION_STRING: postgres://postgres:rag_password@rag-db:5432/postgres
       ACCESS_TOKEN_PUBLIC_KEY: 0qw/WOYvsmc3TJKKebk3vawfmo8aKGM6lpFchb6XviI=
+
       KAFKA_SEED_BROKERS: "kafka:9092"
+
+      TELEMETRY_COLLECTOR_ENDPOINT: tempo:4317
     volumes:
       - "../:/app"
       - rag_service_pkg:/go/pkg/mod
