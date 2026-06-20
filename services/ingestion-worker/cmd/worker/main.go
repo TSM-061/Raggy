@@ -9,9 +9,11 @@ import (
 	"github.com/TSM-061/Raggy/ingestion-worker/internal/consumer"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/storage"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 )
 
 func main() {
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		slog.Error("failed to load config", slog.Any("error", err))
@@ -22,6 +24,13 @@ func main() {
 
 	log := logger.New(cfg.LogLevel)
 	ctx = logger.ToContext(ctx, log)
+
+	tp, err := telemetry.InitTracerProvider(ctx, "ingestion-worker", cfg.Telemetry)
+	if err != nil {
+		slog.Error("failed to init telemetry", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer tp.Shutdown(ctx)
 
 	uploadsBucket, err := storage.OpenS3Bucket(ctx, cfg.S3Credentials, cfg.S3Config)
 	if err != nil {
