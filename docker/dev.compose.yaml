@@ -1,8 +1,9 @@
 name: raggy
 
 include:
-  - db.yaml
-  - infra.yaml
+  - storage.compose.yaml
+  - observability.compose.yaml
+  - infrastructure.compose.yaml
 
 services:
   auth-service:
@@ -21,7 +22,7 @@ services:
       - "../:/app"
       - auth_service_pkg:/go/pkg/mod
     labels:
-      - dev.dozzle.group=services
+      - project.group=services
     depends_on:
       - auth-db
 
@@ -46,7 +47,7 @@ services:
       - "../:/app"
       - dashboard_service_pkg:/go/pkg/mod
     labels:
-      - dev.dozzle.group=services
+      - project.group=services
     depends_on:
       - dashboard-db
 
@@ -66,7 +67,7 @@ services:
       - "../:/app"
       - ingestion_worker_pkg:/go/pkg/mod
     labels:
-      - dev.dozzle.group=services
+      - project.group=services
 
   rag-service:
     build:
@@ -86,7 +87,7 @@ services:
       - "../:/app"
       - rag_service_pkg:/go/pkg/mod
     labels:
-      - dev.dozzle.group=services
+      - project.group=services
     depends_on:
       - rag-db
 
@@ -107,5 +108,4 @@ volumes:
   dashboard_service_pkg:
   ingestion_worker_pkg:
   rag_service_pkg:
-
   frontend_pkg:
