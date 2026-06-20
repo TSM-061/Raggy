@@ -8,6 +8,7 @@ import (
 	"github.com/TSM-061/Raggy/dashboard/internal/consumer"
 	"github.com/TSM-061/Raggy/shared/env"
 	"github.com/TSM-061/Raggy/shared/storage"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 )
 
 type Config struct {
@@ -23,6 +24,8 @@ type Config struct {
 	ConsumerConfig *consumer.Config `env:",init" envPrefix:"KAFKA_"`
 
 	UploadURLTTL time.Duration `env:"UPLOAD_URL_TTL" envDefault:"5m"`
+
+	Telemetry *telemetry.Config `env:",init" envPrefix:"TELEMETRY_"`
 }
 
 func LoadConfig() (*Config, error) {

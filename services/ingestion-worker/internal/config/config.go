@@ -6,6 +6,7 @@ import (
 	"github.com/TSM-061/Raggy/ingestion-worker/internal/consumer"
 	"github.com/TSM-061/Raggy/shared/env"
 	"github.com/TSM-061/Raggy/shared/storage"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 )
 
 type Config struct {
@@ -15,6 +16,8 @@ type Config struct {
 	S3Config      *storage.S3Config      `env:",init" envPrefix:"S3_"`
 
 	ConsumerConfig *consumer.Config `env:",init" envPrefix:"KAFKA_"`
+
+	Telemetry *telemetry.Config `env:",init" envPrefix:"TELEMETRY_"`
 }
 
 func LoadConfig() (*Config, error) {

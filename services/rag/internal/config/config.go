@@ -7,6 +7,7 @@ import (
 	"github.com/TSM-061/Raggy/rag/internal/ai"
 	"github.com/TSM-061/Raggy/rag/internal/consumer"
 	"github.com/TSM-061/Raggy/shared/env"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 )
 
 type Config struct {
@@ -18,6 +19,8 @@ type Config struct {
 
 	GeminiConfig   *ai.GeminiConfig `env:",init" envPrefix:"GEMINI_"`
 	ConsumerConfig *consumer.Config `env:",init" envPrefix:"KAFKA_"`
+
+	Telemetry *telemetry.Config `env:",init" envPrefix:"TELEMETRY_"`
 }
 
 func LoadConfig() (*Config, error) {
