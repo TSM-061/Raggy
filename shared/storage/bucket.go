@@ -11,19 +11,6 @@ import (
 	"gocloud.dev/blob/s3blob"
 )
 
-type S3Credentials struct {
-	AccessKeyID     string `env:"ACCESS_KEY_ID,required,notEmpty"`
-	SecretAccessKey string `env:"SECRET_ACCESS_KEY,required,notEmpty"`
-}
-
-type S3Config struct {
-	Bucket       string `env:"BUCKET" envDefault:"uploads"`
-	Region       string `env:"REGION" envDefault:"ap-southeast-2"`
-	Endpoint     string `env:"ENDPOINT,required"`
-	UsePathStyle bool   `env:"USE_PATH_STYLE" envDefault:"true"`
-	DisableSSL   bool   `env:"DISABLE_SSL" envDefault:"false"`
-}
-
 func OpenS3Bucket(ctx context.Context, cred *S3Credentials, cfg *S3Config) (*blob.Bucket, error) {
 	credentialsProvider := awscredentials.NewStaticCredentialsProvider(
 		cred.AccessKeyID,
