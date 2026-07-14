@@ -32,14 +32,13 @@ func main() {
 	}
 	defer tp.Shutdown(ctx)
 
-	uploadsBucket, err := storage.OpenS3Bucket(ctx, cfg.S3Credentials, cfg.S3Config)
+	bucket, err := storage.NewS3Bucket(ctx, cfg.S3Credentials, cfg.S3Config)
 	if err != nil {
 		log.Error("failed to open bucket", slog.Any("error", err))
 		os.Exit(1)
 	}
-	defer uploadsBucket.Close()
 
-	consumer, err := consumer.New(cfg.ConsumerConfig, uploadsBucket)
+	consumer, err := consumer.New(cfg.ConsumerConfig, bucket)
 	if err != nil {
 		log.Error("failed to create kafka consumer", slog.Any("error", err))
 		os.Exit(1)

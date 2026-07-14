@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/TSM-061/Raggy/dashboard/internal/services"
 	"github.com/TSM-061/Raggy/dashboard/internal/upload"
@@ -14,10 +15,7 @@ import (
 	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"go.opentelemetry.io/otel"
 )
-
-var tracer = otel.Tracer("github.com/TSM-061/Raggy/dashboard/internal/consumer")
 
 type Config struct {
 	MaxPollRecords int      `env:"MAX_POLL_RECORDS" envDefault:"10"`
@@ -36,6 +34,9 @@ func New(cfg *Config, uploads *services.Upload) (*Runner, error) {
 		kgo.ConsumerGroup("dashboard-service"),
 		kgo.ConsumeTopics("s3-events"),
 		kgo.WithHooks(telemetry.NewKafkaHook()),
+
+		kgo.SessionTimeout(2*time.Second),
+		kgo.HeartbeatInterval(800*time.Millisecond),
 	)
 	if err != nil {
 		return nil, err
@@ -65,13 +66,11 @@ func (r *Runner) Start(ctx context.Context) {
 
 		for record := range fetches.RecordsAll() {
 			recordCtx := telemetry.Extract(ctx, record)
-			recordCtx, span := tracer.Start(recordCtx, "Upload.Process")
 
 			if errs := r.processMessage(recordCtx, record); len(errs) > 0 {
 				log.ErrorContext(recordCtx, "error processing message", slog.Any("errors", errs))
 			}
 
-			span.End()
 		}
 	}
 }
