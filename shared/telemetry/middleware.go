@@ -20,7 +20,7 @@ func Middleware(next http.Handler) http.Handler {
 
 		ctx, span := tracer.Start(
 			ctx,
-			fmt.Sprintf("%s %s", r.Method, r.Pattern),
+			fmt.Sprintf("%s %s", r.Method, r.URL),
 			trace.WithSpanKind(trace.SpanKindServer),
 		)
 		defer span.End()
