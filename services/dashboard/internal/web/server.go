@@ -11,6 +11,7 @@ import (
 	"github.com/TSM-061/Raggy/dashboard/internal/services"
 	"github.com/TSM-061/Raggy/shared/auth"
 	"github.com/TSM-061/Raggy/shared/logger"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -51,8 +52,10 @@ func (s *Server) BuildEndpoints(log *slog.Logger, auth *auth.Middleware) http.Ha
 	mux.HandleFunc("DELETE /api/uploads/{id}", s.HandleDeleteUpload)
 
 	var handler http.Handler = mux
-	handler = logger.Wrap(handler, log)
+
 	handler = auth.Wrap(handler)
+	handler = logger.Wrap(handler, log)
+	handler = telemetry.Middleware(handler)
 
 	return handler
 }

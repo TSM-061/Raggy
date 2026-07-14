@@ -17,6 +17,7 @@ import (
 	"github.com/TSM-061/Raggy/shared/clock"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/storage"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -33,6 +34,13 @@ func main() {
 	baseCtx := context.Background()
 	baseCtx = logger.ToContext(baseCtx, log)
 
+	tp, err := telemetry.InitTracerProvider(baseCtx, "raggy-dashboard", cfg.Telemetry)
+	if err != nil {
+		slog.Error("failed to init telemetry", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer tp.Shutdown(baseCtx)
+
 	runCtx, stop := signal.NotifyContext(
 		baseCtx,
 		os.Interrupt,
@@ -47,12 +55,11 @@ func main() {
 	}
 	defer pool.Close()
 
-	bucket, err := storage.OpenS3Bucket(baseCtx, cfg.S3Credentials, cfg.S3Config)
+	bucket, err := storage.NewS3Bucket(baseCtx, cfg.S3Credentials, cfg.S3Config)
 	if err != nil {
 		log.Error("failed to open bucket", slog.Any("error", err))
 		os.Exit(1)
 	}
-	defer bucket.Close()
 
 	uploads := upload.NewPostgresRepo(pool)
 	uploadService := services.NewUploadService(uploads, bucket, cfg.UploadURLTTL, validator.New())

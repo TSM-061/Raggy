@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"go.opentelemetry.io/otel"
 	"google.golang.org/genai"
 )
 
@@ -20,6 +21,8 @@ type GeminiClient struct {
 	embeddingDimensions *int32
 	generationModel     string
 }
+
+var tracer = otel.Tracer("github.com/TSM-061/Raggy/rag/internal/ai")
 
 func NewGeminiClient(ctx context.Context, cfg *GeminiConfig) (*GeminiClient, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
@@ -43,11 +46,13 @@ func (g *GeminiClient) Embed(ctx context.Context, tokens string) ([]float32, err
 		genai.NewContentFromText(tokens, genai.RoleUser),
 	}
 
+	ctx, span := tracer.Start(ctx, fmt.Sprintf("embeddings %s", g.embeddingModel))
 	result, err := g.client.Models.EmbedContent(ctx,
 		g.embeddingModel,
 		contents,
 		&genai.EmbedContentConfig{OutputDimensionality: g.embeddingDimensions},
 	)
+	span.End()
 	if err != nil {
 		return nil, fmt.Errorf("generate gemini embedding: %w", err)
 	}

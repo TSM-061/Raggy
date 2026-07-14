@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/TSM-061/Raggy/ingestion-worker/internal/projectreportmd"
 	"github.com/TSM-061/Raggy/shared/logger"
@@ -12,10 +13,17 @@ import (
 	"github.com/TSM-061/Raggy/shared/message/upload"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/TSM-061/Raggy/shared/telemetry"
+	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
-
-	"gocloud.dev/blob"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
+
+var tracer = otel.Tracer("github.com/TSM-061/Raggy/ingestion-worker/internal/consumer")
+
+type Downloader interface {
+	Download(ctx context.Context, key uuid.UUID) ([]byte, error)
+}
 
 type Config struct {
 	MaxPollRecords int      `env:"MAX_POLL_RECORDS" envDefault:"10"`
@@ -24,15 +32,19 @@ type Config struct {
 
 type Runner struct {
 	client  *kgo.Client
-	uploads *blob.Bucket
+	uploads Downloader
 	config  *Config
 }
 
-func New(cfg *Config, uploads *blob.Bucket) (*Runner, error) {
+func New(cfg *Config, uploads Downloader) (*Runner, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(cfg.SeedBrokers...),
 		kgo.ConsumerGroup("ingestion-worker"),
 		kgo.ConsumeTopics(upload.TopicName),
+		kgo.WithHooks(telemetry.NewKafkaHook()),
+
+		kgo.SessionTimeout(2*time.Second),
+		kgo.HeartbeatInterval(800*time.Millisecond),
 	)
 	if err != nil {
 		return nil, err
@@ -61,11 +73,18 @@ func (c *Runner) Start(ctx context.Context) {
 		}
 
 		for record := range fetches.RecordsAll() {
-			ctx = telemetry.WithKafkaMeta(ctx, record)
-			c.handleUploadMessage(ctx, record)
+			// TODO separate this out into another file and add the upload_id as an attribute
+			recordCtx, span := tracer.Start(
+				ctx,
+				"Upload.Ingest",
+				trace.WithLinks(trace.LinkFromContext(telemetry.Extract(ctx, record))),
+			)
+
+			c.handleUploadMessage(recordCtx, record)
+
+			span.End()
 		}
 	}
-
 }
 
 func (c *Runner) handleUploadMessage(ctx context.Context, record *kgo.Record) {
@@ -77,10 +96,7 @@ func (c *Runner) handleUploadMessage(ctx context.Context, record *kgo.Record) {
 		return
 	}
 
-	log = log.With(
-		slog.String("upload_id", msg.UploadID),
-		slog.String("type", string(msg.Type)),
-	)
+	log = log.With(slog.String("upload_id", msg.UploadID))
 	ctx = logger.ToContext(ctx, log)
 
 	switch msg.Type {
@@ -90,22 +106,38 @@ func (c *Runner) handleUploadMessage(ctx context.Context, record *kgo.Record) {
 			return
 		}
 	default:
-		log.DebugContext(ctx, "ignoring unsupported upload message ")
+		log.DebugContext(ctx,
+			"ignoring unsupported upload message",
+			slog.String("type", string(msg.Type)),
+		)
 	}
+
 }
 
 func (c *Runner) handleUploadCompleted(
 	ctx context.Context, msg upload.CompletedMessage) error {
 	log := logger.FromContext(ctx)
 
-	data, err := c.uploads.ReadAll(ctx, msg.UploadID)
+	uploadID, err := uuid.Parse(msg.UploadID)
+	if err != nil {
+		return fmt.Errorf("parse upload id: %w", err)
+	}
+
+	downloadCtx, downloadSpan := tracer.Start(ctx, "Upload.Download")
+
+	data, err := c.uploads.Download(downloadCtx, uploadID)
 	if err != nil {
 		return fmt.Errorf("read from bucket: %w", err)
 	}
 
+	downloadSpan.End()
+
 	log = log.With(
 		slog.String("profile_hint", string(msg.ProfileHint)),
 	)
+	ctx = logger.ToContext(ctx, log)
+
+	_, span := tracer.Start(ctx, "Upload.Chunking")
 
 	switch msg.ProfileHint {
 	case upload.ProjectReportMd:
@@ -121,10 +153,14 @@ func (c *Runner) handleUploadCompleted(
 		)
 	}
 
+	span.End()
+
 	return nil
 }
 
 func (c *Runner) handleProjectReportMarkdown(ctx context.Context, uploadMsg upload.CompletedMessage, data []byte) error {
+	log := logger.FromContext(ctx)
+
 	report, err := projectreportmd.Parse(ctx, data)
 	if err != nil {
 		return fmt.Errorf("parse project markdown: %w", err)
@@ -183,6 +219,10 @@ func (c *Runner) handleProjectReportMarkdown(ctx context.Context, uploadMsg uplo
 			err,
 		)
 	}
+
+	log.InfoContext(ctx, "upload chunked successfully",
+		slog.Int("count", len(messages)),
+	)
 
 	return nil
 }

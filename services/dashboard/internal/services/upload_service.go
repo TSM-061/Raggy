@@ -9,27 +9,31 @@ import (
 	"github.com/TSM-061/Raggy/dashboard/internal/upload"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
+	"github.com/TSM-061/Raggy/shared/storage"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	"gocloud.dev/blob"
 )
+
+type Presigner interface {
+	SignedPutURL(ctx context.Context, key string) (*storage.SignedUrl, error)
+}
 
 type Upload struct {
 	uploads   upload.Repo
-	bucket    *blob.Bucket
+	presigner Presigner
 	urlTTL    time.Duration
 	validator *validator.Validate
 }
 
 func NewUploadService(
 	uploads upload.Repo,
-	bucket *blob.Bucket,
+	bucket Presigner,
 	urlTTL time.Duration,
 	v *validator.Validate,
 ) *Upload {
 	return &Upload{
 		uploads:   uploads,
-		bucket:    bucket,
+		presigner: bucket,
 		urlTTL:    urlTTL,
 		validator: v,
 	}
@@ -49,9 +53,10 @@ type CreateUploadCommand struct {
 }
 
 type CreateUploadResult struct {
-	UploadURL          string
-	UploadURLExpiresAt time.Time
-	Upload             *upload.Upload
+	UploadURL     string
+	SignedHeaders map[string]string
+	ExpiresAt     time.Time
+	Upload        *upload.Upload
 }
 
 func (s *Upload) CreateUpload(
@@ -80,10 +85,7 @@ func (s *Upload) CreateUpload(
 		return nil, err
 	}
 
-	u, err := s.bucket.SignedURL(ctx, upload.ID.String(), &blob.SignedURLOptions{
-		Method: "PUT",
-		Expiry: s.urlTTL,
-	})
+	u, err := s.presigner.SignedPutURL(ctx, upload.ID.String())
 	if err != nil {
 		return nil, fmt.Errorf("presign upload url: %w", err)
 	}
@@ -97,9 +99,10 @@ func (s *Upload) CreateUpload(
 	)
 
 	return &CreateUploadResult{
-		UploadURL:          u,
-		UploadURLExpiresAt: expiresAt,
-		Upload:             upload,
+		UploadURL:     u.Url,
+		SignedHeaders: u.SignedHeaders,
+		ExpiresAt:     expiresAt,
+		Upload:        upload,
 	}, nil
 }
 

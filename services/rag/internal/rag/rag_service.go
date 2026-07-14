@@ -94,7 +94,6 @@ func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
 		"chunk embedding successfully persisted",
 		slog.String("chunk_id", chunk.ID.String()),
 		slog.Int("chunk_index", info.ChunkIndex),
-		slog.Int("chunk_total", info.ChunkTotal),
 	)
 
 	return nil

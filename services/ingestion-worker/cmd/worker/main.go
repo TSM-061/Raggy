@@ -9,9 +9,11 @@ import (
 	"github.com/TSM-061/Raggy/ingestion-worker/internal/consumer"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/storage"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 )
 
 func main() {
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		slog.Error("failed to load config", slog.Any("error", err))
@@ -23,14 +25,20 @@ func main() {
 	log := logger.New(cfg.LogLevel)
 	ctx = logger.ToContext(ctx, log)
 
-	uploadsBucket, err := storage.OpenS3Bucket(ctx, cfg.S3Credentials, cfg.S3Config)
+	tp, err := telemetry.InitTracerProvider(ctx, "ingestion-worker", cfg.Telemetry)
+	if err != nil {
+		slog.Error("failed to init telemetry", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer tp.Shutdown(ctx)
+
+	bucket, err := storage.NewS3Bucket(ctx, cfg.S3Credentials, cfg.S3Config)
 	if err != nil {
 		log.Error("failed to open bucket", slog.Any("error", err))
 		os.Exit(1)
 	}
-	defer uploadsBucket.Close()
 
-	consumer, err := consumer.New(cfg.ConsumerConfig, uploadsBucket)
+	consumer, err := consumer.New(cfg.ConsumerConfig, bucket)
 	if err != nil {
 		log.Error("failed to create kafka consumer", slog.Any("error", err))
 		os.Exit(1)

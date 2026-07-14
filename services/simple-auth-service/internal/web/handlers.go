@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"time"
 
 	"github.com/TSM-061/Raggy/shared/problem"
 	"github.com/TSM-061/Raggy/shared/serviceerr"
@@ -18,22 +19,30 @@ const (
 
 func newAccessTokenCookie(value string, maxAge int) *http.Cookie {
 	return &http.Cookie{
-		Name:     AccessTokenCookieName,
-		Value:    value,
-		Path:     "/",
-		MaxAge:   maxAge,
+		Name:  AccessTokenCookieName,
+		Value: value,
+		Path:  "/",
+
+		MaxAge: maxAge,
+		// Fallback for older or barebones clients
+		Expires: time.Now().Add(time.Second * time.Duration(maxAge)),
+
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	}
 }
 
-func newRefreshTokenCookie(value string, maxAge int) *http.Cookie {
+func newRefreshTokenCookie(value string) *http.Cookie {
 	return &http.Cookie{
-		Name:     RefreshTokenCookieName,
-		Value:    value,
-		Path:     "/api/auth",
-		MaxAge:   maxAge,
+		Name:  RefreshTokenCookieName,
+		Value: value,
+		Path:  "/api/auth",
+
+		MaxAge: math.MaxInt,
+		// Fallback for older or barebones clients
+		Expires: time.Now().Add(time.Hour * 24 * time.Duration(400)), // RFC 400 days
+
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
@@ -45,17 +54,14 @@ func (s *Server) setAuthCookies(w http.ResponseWriter, authResult *services.Auth
 		authResult.Tokens.AccessToken,
 		int(s.config.AccessTokenConfig.TTL.Seconds()),
 	)
-	refreshTokenCookie := newRefreshTokenCookie(
-		authResult.Tokens.RefreshToken,
-		math.MaxInt,
-	)
+	refreshTokenCookie := newRefreshTokenCookie(authResult.Tokens.RefreshToken)
 	http.SetCookie(w, accessTokenCookie)
 	http.SetCookie(w, refreshTokenCookie)
 }
 
 func clearAuthCookies(w http.ResponseWriter) {
 	accessTokenCookie := newAccessTokenCookie("", -1)
-	refreshTokenCookie := newRefreshTokenCookie("", -1)
+	refreshTokenCookie := newRefreshTokenCookie("")
 	http.SetCookie(w, accessTokenCookie)
 	http.SetCookie(w, refreshTokenCookie)
 }
@@ -101,6 +107,7 @@ func (s *Server) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	result, err := s.auth.Refresh(r.Context(), cookie.Value)
 	if err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	s.setAuthCookies(w, result)

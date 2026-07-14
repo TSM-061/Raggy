@@ -23,8 +23,9 @@ type createUploadRequest struct {
 }
 
 type createUploadResponse struct {
-	Upload    uploadResponse `json:"upload"`
-	UploadURL string         `json:"uploadUrl"`
+	Upload        uploadResponse    `json:"upload"`
+	URL           string            `json:"url"`
+	SignedHeaders map[string]string `json:"signedHeaders"`
 }
 
 type listUploadsResponse struct {
@@ -92,8 +93,9 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(&createUploadResponse{
-		Upload:    toUploadResponse(result.Upload),
-		UploadURL: result.UploadURL,
+		Upload:        toUploadResponse(result.Upload),
+		URL:           result.UploadURL,
+		SignedHeaders: result.SignedHeaders,
 	}); err != nil {
 		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/TSM-061/Raggy/rag/internal/upload"
 	"github.com/TSM-061/Raggy/rag/internal/web"
 	"github.com/TSM-061/Raggy/shared/logger"
+	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -38,6 +39,13 @@ func main() {
 	)
 	defer stop()
 
+	tp, err := telemetry.InitTracerProvider(baseCtx, "rag-service", cfg.Telemetry)
+	if err != nil {
+		slog.Error("failed to init telemetry", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer tp.Shutdown(baseCtx)
+
 	pool, err := pgxpool.New(baseCtx, cfg.DbConnectionString)
 	if err != nil {
 		log.Error(
@@ -51,18 +59,21 @@ func main() {
 	chunks := chunk.NewPostgresRepo(pool)
 	uploads := upload.NewPostgresRepo(pool)
 
-	geminiClient, err := ai.NewGeminiClient(baseCtx, cfg.GeminiConfig)
-	if err != nil {
-		log.Error(
-			"failed to create gemini ai client",
-			slog.Any("error", err),
-		)
-		os.Exit(1)
-	}
+	// geminiClient, err := ai.NewGeminiClient(baseCtx, cfg.GeminiConfig)
+	// if err != nil {
+	// 	log.Error(
+	// 		"failed to create gemini ai client",
+	// 		slog.Any("error", err),
+	// 	)
+	// 	os.Exit(1)
+	// }
 
-	ragService := rag.New(uploads, chunks, geminiClient, geminiClient)
+	mockAIClient := &ai.MockAI{}
+	ragService := rag.New(uploads, chunks, mockAIClient, mockAIClient)
 
-	consumer, err := consumer.New(cfg.ConsumerConfig, ragService)
+	tracker := consumer.NewJobTracker(ragService)
+
+	consumer, err := consumer.New(cfg.ConsumerConfig, tracker)
 	if err != nil {
 		log.Error(
 			"failed to create kafka consumer",

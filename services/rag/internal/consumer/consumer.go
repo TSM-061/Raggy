@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/TSM-061/Raggy/rag/internal/rag"
 	"github.com/TSM-061/Raggy/shared/logger"
@@ -12,6 +13,7 @@ import (
 	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel"
 )
 
 type Config struct {
@@ -20,25 +22,31 @@ type Config struct {
 }
 
 type Runner struct {
-	client     *kgo.Client
-	ragService *rag.RAG
-	config     *Config
+	client  *kgo.Client
+	config  *Config
+	tracker *tracker
 }
 
-func New(config *Config, ragService *rag.RAG) (*Runner, error) {
+var tracer = otel.Tracer("github.com/TSM-061/Raggy/rag/internal/consumer")
+
+func New(config *Config, tracker *tracker) (*Runner, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(config.SeedBrokers...),
 		kgo.ConsumerGroup("rag-service"),
 		kgo.ConsumeTopics(chunk.TopicName),
+		kgo.WithHooks(telemetry.NewKafkaHook()),
+
+		kgo.SessionTimeout(2*time.Second),
+		kgo.HeartbeatInterval(800*time.Millisecond),
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Runner{
-		client:     client,
-		ragService: ragService,
-		config:     config,
+		client:  client,
+		config:  config,
+		tracker: tracker,
 	}, nil
 }
 
@@ -58,11 +66,12 @@ func (c *Runner) Start(ctx context.Context) {
 		}
 
 		for record := range fetches.RecordsAll() {
-			ctx = telemetry.WithKafkaMeta(ctx, record)
+			ctx = telemetry.Extract(ctx, record)
 
 			if err := c.ProcessMessage(ctx, record); err != nil {
 				log.ErrorContext(ctx, "error processing message", slog.Any("error", err))
 			}
+
 		}
 	}
 }
@@ -76,10 +85,7 @@ func (c *Runner) ProcessMessage(ctx context.Context, record *kgo.Record) error {
 		return fmt.Errorf("unmarhsal chunk message: %w", err)
 	}
 
-	log = log.With(
-		slog.String("upload_id", msg.UploadID),
-		slog.String("type", string(msg.Type)),
-	)
+	log = log.With(slog.String("upload_id", msg.UploadID))
 	ctx = logger.ToContext(ctx, log)
 
 	switch msg.Type {
@@ -106,7 +112,7 @@ func (c *Runner) HandleChunkStream(ctx context.Context, msg chunk.Message) error
 		return fmt.Errorf("parse upload id: %w", err)
 	}
 
-	if err := c.ragService.IngestChunk(ctx, &rag.ChunkInformation{
+	if err := c.tracker.TrackAndProcessChunk(ctx, &rag.ChunkInformation{
 		UploadID:      uploadID,
 		ChunkIndex:    payload.Index,
 		ChunkTotal:    payload.Total,
