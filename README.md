@@ -5,6 +5,8 @@ Raggy is a prototype RAG (Retrieval-Augmented Generation) pipeline built to expl
 > [!NOTE]
 > This project is currently a Work in Progress. Core functionality is implemented, additional features are still being integrated.
 
+The backend query API returns answers with validated source references or an explicit insufficient-evidence result. See the [query API documentation](docs/rag-query-api.md) for response examples, configuration, and verification steps.
+
 <br>
 
 ![Raggy High Level Service Map](.assets/high-level-infra-overview.svg)

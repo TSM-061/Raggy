@@ -2,18 +2,15 @@ package web
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/TSM-061/Raggy/rag/internal/rag"
 	"github.com/TSM-061/Raggy/shared/logger"
+	"github.com/TSM-061/Raggy/shared/serviceerr"
 )
-
-type queryResponse struct {
-	Response string `json:"response"`
-}
 
 func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -35,8 +32,8 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if limitInt <= 0 {
-			http.Error(w, "invalid queryparam 'limit' must be > 0", http.StatusBadRequest)
+		if limitInt < 1 || limitInt > 5 {
+			http.Error(w, "invalid queryparam 'limit' must be between 1 and 5", http.StatusBadRequest)
 			return
 		}
 		limit = limitInt
@@ -47,13 +44,16 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 		Limit: limit,
 	})
 	if err != nil {
-
+		if errors.Is(err, serviceerr.InvalidInput) {
+			http.Error(w, "invalid query", http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "search failed", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(&queryResponse{Response: response}); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.ErrorContext(
 			ctx,
 			`failed to encode query response JSON`,
@@ -61,7 +61,7 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 		)
 		http.Error(
 			w,
-			fmt.Sprintf("failed to encode response: %v", err),
+			"failed to encode response",
 			http.StatusInternalServerError,
 		)
 	}
