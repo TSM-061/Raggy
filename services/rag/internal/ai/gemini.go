@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/TSM-061/Raggy/rag/internal/rag"
+
 	"go.opentelemetry.io/otel"
 	"google.golang.org/genai"
 )
@@ -67,20 +69,33 @@ func (g *GeminiClient) Embed(ctx context.Context, tokens string) ([]float32, err
 	return result.Embeddings[0].Values, nil
 }
 
-func (g *GeminiClient) GenerateContent(ctx context.Context, prompt string) (string, error) {
+func (g *GeminiClient) GenerateContent(ctx context.Context, prompt string) (*rag.GeneratedAnswer, error) {
 	result, err := g.client.Models.GenerateContent(
 		ctx,
 		g.generationModel,
 		genai.Text(prompt),
 		&genai.GenerateContentConfig{
+			ResponseMIMEType: "application/json",
+			ResponseSchema:   answerSchema(),
 			ThinkingConfig: &genai.ThinkingConfig{
 				ThinkingLevel: genai.ThinkingLevelLow,
 			},
 		},
 	)
 	if err != nil {
-		return "", fmt.Errorf("generate gemini response: %w", err)
+		return nil, fmt.Errorf("generate gemini response: %w", err)
 	}
 
-	return result.Text(), nil
+	if result == nil {
+		return nil, rag.ErrInvalidGeneration
+	}
+	return rag.ParseGeneratedAnswer(result.Text())
+}
+
+func answerSchema() *genai.Schema {
+	return &genai.Schema{Type: genai.TypeObject, Required: []string{"status", "answer", "references"}, Properties: map[string]*genai.Schema{
+		"status":     {Type: genai.TypeString, Enum: []string{"answered", "insufficient_evidence"}},
+		"answer":     {Type: genai.TypeString},
+		"references": {Type: genai.TypeArray, Items: &genai.Schema{Type: genai.TypeString}},
+	}}
 }

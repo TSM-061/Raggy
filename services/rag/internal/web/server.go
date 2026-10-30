@@ -17,9 +17,13 @@ import (
 type Server struct {
 	cfg        *config.Config
 	httpServer *http.Server
-	rag        *rag.RAG
+	rag        searcher
 	auth       *auth.Middleware
 	logger     *slog.Logger
+}
+
+type searcher interface {
+	Search(context.Context, *rag.SearchQuery) (*rag.SearchResult, error)
 }
 
 func NewServer(cfg *config.Config, logger *slog.Logger, ragService *rag.RAG) *Server {

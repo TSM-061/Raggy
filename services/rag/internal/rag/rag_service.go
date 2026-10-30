@@ -3,6 +3,7 @@ package rag
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -19,7 +20,7 @@ type Embedder interface {
 }
 
 type Generator interface {
-	GenerateContent(ctx context.Context, prompt string) (string, error)
+	GenerateContent(ctx context.Context, prompt string) (*GeneratedAnswer, error)
 }
 
 type RAG struct {
@@ -104,17 +105,17 @@ type SearchQuery struct {
 	Limit int
 }
 
-func (r *RAG) Search(ctx context.Context, query *SearchQuery) (string, error) {
+func (r *RAG) Search(ctx context.Context, query *SearchQuery) (*SearchResult, error) {
 	log := logger.FromContext(ctx)
 
 	limitMax := 5
 
-	if query.Value == "" {
-		return "", fmt.Errorf("%w: query value can't be empty", serviceerr.InvalidInput)
+	if query == nil || strings.TrimSpace(query.Value) == "" {
+		return nil, fmt.Errorf("%w: query value can't be empty", serviceerr.InvalidInput)
 	}
 
 	if query.Limit < 1 || query.Limit > limitMax {
-		return "", fmt.Errorf(
+		return nil, fmt.Errorf(
 			"%w: query limit %d out of bounds, range [1,%d)",
 			serviceerr.InvalidInput,
 			query.Limit,
@@ -124,38 +125,37 @@ func (r *RAG) Search(ctx context.Context, query *SearchQuery) (string, error) {
 
 	embedding, err := r.embedder.Embed(ctx, query.Value)
 	if err != nil {
-		return "", fmt.Errorf("calculate query embedding: %w", err)
+		log.ErrorContext(ctx, "rag search failed", slog.String("category", "embedding"))
+		return nil, fmt.Errorf("calculate query embedding: %w", err)
 	}
 
 	chunks, err := r.chunks.Search(ctx, embedding, query.Limit)
 	if err != nil {
-		return "", fmt.Errorf("search chunk vectors: %w", err)
+		log.ErrorContext(ctx, "rag search failed", slog.String("category", "retrieval"))
+		return nil, fmt.Errorf("search chunk vectors: %w", err)
 	}
 
-	var promptBuilder strings.Builder
-
-	promptBuilder.WriteString("<context>\n")
-	for _, c := range chunks {
-		promptBuilder.WriteString("<context_item>")
-		promptBuilder.Write(c.Content)
-		promptBuilder.WriteString("</context_item>\n")
+	if len(chunks) == 0 {
+		return insufficientResult(), nil
 	}
-	promptBuilder.WriteString("</context>\n")
-
-	response, err := r.generator.GenerateContent(ctx, promptBuilder.String())
+	prompt, sources, err := buildPrompt(query.Value, chunks)
 	if err != nil {
-		log.ErrorContext(ctx, "rag search operation failed",
-			slog.String("query", query.Value),
-			slog.Int("limit", query.Limit),
-			slog.Any("error", err),
-		)
-		return "", fmt.Errorf("generate prompt response: %w", err)
+		log.ErrorContext(ctx, "rag search failed", slog.String("category", "persisted_content"))
+		return nil, err
 	}
-
-	log.InfoContext(ctx,
-		"rag search query",
-		slog.Any("query", query),
-	)
-
-	return response, nil
+	answer, err := r.generator.GenerateContent(ctx, prompt)
+	if err != nil {
+		category := "provider"
+		if errors.Is(err, ErrInvalidGeneration) {
+			category = "generation_format"
+		}
+		log.ErrorContext(ctx, "rag generation failed", slog.String("category", category))
+		return nil, fmt.Errorf("generate answer: %w", err)
+	}
+	result, err := resolveAnswer(answer, sources)
+	if err != nil {
+		log.ErrorContext(ctx, "rag generation failed", slog.String("category", "invalid_references"))
+		return nil, err
+	}
+	return result, nil
 }
