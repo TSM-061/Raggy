@@ -1,5 +1,9 @@
 package s3
 
+const TopicName string = "s3-events"
+
+const ObjectCreatedPut string = "s3:ObjectCreated:Put"
+
 type Record struct {
 	EventName string `json:"eventName"`
 	S3        struct {

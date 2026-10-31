@@ -35,7 +35,7 @@ func New(cfg *Config, uploads *services.Upload) (*Runner, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(cfg.SeedBrokers...),
 		kgo.ConsumerGroup("dashboard-service"),
-		kgo.ConsumeTopics("s3-events", uploadmsg.ProgressTopic),
+		kgo.ConsumeTopics(s3.TopicName, uploadmsg.ProgressTopic),
 		kgo.DisableAutoCommit(),
 		kgo.BlockRebalanceOnPoll(),
 		kgo.WithHooks(telemetry.NewKafkaHook()),
@@ -150,7 +150,7 @@ func (r *Runner) handleS3Record(ctx context.Context, s3Record s3.Record) error {
 		return fmt.Errorf("%w: invalid S3 object key", serviceerr.InvalidInput)
 	}
 
-	if s3Record.EventName != "s3:ObjectCreated:Put" {
+	if s3Record.EventName != s3.ObjectCreatedPut {
 		log.DebugContext(
 			ctx,
 			"ignoring unsupported event name",
