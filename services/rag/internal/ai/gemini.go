@@ -11,7 +11,7 @@ import (
 )
 
 type GeminiConfig struct {
-	APIKey              string `env:"API_KEY,required"`
+	APIKey              string `env:"API_KEY"`
 	EmbeddingModel      string `env:"EMBEDDING_MODEL" envDefault:"gemini-embedding-2"`
 	EmbeddingDimensions *int32 `env:"EMBEDDING_DIMENSIONS" envDefault:"1536"`
 	GenerationModel     string `env:"GENERATION_MODEL" envDefault:"gemini-3.5-flash"`
@@ -27,6 +27,9 @@ type GeminiClient struct {
 var tracer = otel.Tracer("github.com/TSM-061/Raggy/rag/internal/ai")
 
 func NewGeminiClient(ctx context.Context, cfg *GeminiConfig) (*GeminiClient, error) {
+	if err := ValidateProvider(ProviderGemini, cfg); err != nil {
+		return nil, err
+	}
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: cfg.APIKey,
 	})

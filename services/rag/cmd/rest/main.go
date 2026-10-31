@@ -59,12 +59,13 @@ func main() {
 	chunks := chunk.NewPostgresRepo(pool)
 	uploads := upload.NewPostgresRepo(pool)
 
-	geminiClient, err := ai.NewGeminiClient(baseCtx, cfg.GeminiConfig)
+	aiClient, err := ai.NewClient(baseCtx, cfg.AIProvider, cfg.GeminiConfig, ai.WithFakeChunkDelay(cfg.FakeChunkDelay))
 	if err != nil {
-		log.Error("failed to create gemini ai client", slog.Any("error", err))
+		log.Error("failed to create AI client", slog.Any("error", err))
 		os.Exit(1)
 	}
-	ragService := rag.New(uploads, chunks, geminiClient, geminiClient)
+	log.Info("AI provider configured", slog.String("provider", cfg.AIProvider))
+	ragService := rag.New(uploads, chunks, aiClient, aiClient)
 
 	tracker := consumer.NewJobTracker(ragService)
 

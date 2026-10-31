@@ -44,7 +44,7 @@ Citation validation proves that labels identify supplied chunks. It does not pro
 
 ## Running and checking
 
-The service now uses the configured Gemini client rather than the former hardcoded mock. Set `GEMINI_API_KEY` in `services/rag/.env` when using the existing development Compose setup. Model names and dimensions remain configurable through the existing `GEMINI_` variables. Re-ingest documents previously embedded with mock vectors before evaluating real retrieval; query and stored embeddings must use the same model and dimensions.
+The service selects its backend with `AI_PROVIDER`: `gemini` (default) requires `GEMINI_API_KEY`; `fake` provides compatible local embeddings and a generic annotated answer with no AI calls. See [fake AI provider](fake-ai-provider.md) for setup and behavior. Model names and dimensions remain configurable through the existing `GEMINI_` variables in Gemini mode. Re-ingest documents previously embedded with fake vectors before evaluating real retrieval; query and stored embeddings must use the same model and dimensions.
 
 Automated checks from `services/rag`:
 

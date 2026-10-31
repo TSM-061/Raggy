@@ -19,6 +19,11 @@ type Embedder interface {
 	Embed(ctx context.Context, tokens string) ([]float32, error)
 }
 
+// ChunkEmbedder optionally customizes ingestion while retaining fast query embeddings.
+type ChunkEmbedder interface {
+	EmbedChunk(context.Context, string) ([]float32, error)
+}
+
 type Generator interface {
 	GenerateContent(ctx context.Context, prompt string) (*GeneratedAnswer, error)
 }
@@ -76,7 +81,11 @@ func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
 		return fmt.Errorf("upsert upload metadata: %w", err)
 	}
 
-	embedding, err := r.embedder.Embed(ctx, info.ContentString)
+	embed := r.embedder.Embed
+	if chunkEmbedder, ok := r.embedder.(ChunkEmbedder); ok {
+		embed = chunkEmbedder.EmbedChunk
+	}
+	embedding, err := embed(ctx, info.ContentString)
 	if err != nil {
 		return fmt.Errorf("calculate chunk embedding: %w", err)
 	}
