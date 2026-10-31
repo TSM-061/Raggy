@@ -15,7 +15,9 @@ type Upload struct {
 	ProfileHint  string
 	SizeBytes    int64
 
-	Status Status
+	Status          Status
+	ChunkTotal      *int
+	ChunksProcessed int
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

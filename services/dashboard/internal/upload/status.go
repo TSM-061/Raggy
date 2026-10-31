@@ -3,14 +3,15 @@ package upload
 type Status string
 
 const (
-	StatusPending   Status = "pending"
-	StatusUploaded  Status = "uploaded"
-	StatusProcessed Status = "processed"
+	StatusPending    Status = "pending"
+	StatusUploaded   Status = "uploaded"
+	StatusProcessing Status = "processing"
+	StatusProcessed  Status = "processed"
 )
 
 func (s Status) IsValid() bool {
 	switch s {
-	case StatusPending, StatusUploaded, StatusProcessed:
+	case StatusPending, StatusUploaded, StatusProcessing, StatusProcessed:
 		return true
 	default:
 		return false

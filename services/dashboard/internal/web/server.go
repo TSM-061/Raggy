@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 
 	"github.com/TSM-061/Raggy/dashboard/internal/config"
+	"github.com/TSM-061/Raggy/dashboard/internal/progress"
 	"github.com/TSM-061/Raggy/dashboard/internal/services"
 	"github.com/TSM-061/Raggy/shared/auth"
 	"github.com/TSM-061/Raggy/shared/logger"
@@ -21,6 +23,7 @@ type Server struct {
 
 	validator *validator.Validate
 	uploads   *services.Upload
+	progress  *progress.Hub
 }
 
 func NewServer(
@@ -28,12 +31,14 @@ func NewServer(
 	log *slog.Logger,
 	auth *auth.Middleware,
 	uploads *services.Upload,
+	hub *progress.Hub,
 ) *Server {
 
 	server := &Server{
 		config:    cfg,
 		validator: validator.New(),
 		uploads:   uploads,
+		progress:  hub,
 	}
 
 	server.httpServer = &http.Server{
@@ -49,6 +54,7 @@ func (s *Server) BuildEndpoints(log *slog.Logger, auth *auth.Middleware) http.Ha
 
 	mux.HandleFunc("POST /api/uploads", s.HandleUpload)
 	mux.HandleFunc("GET /api/uploads", s.HandleListUploads)
+	mux.HandleFunc("GET /api/uploads/events", s.HandleEvents)
 	mux.HandleFunc("DELETE /api/uploads/{id}", s.HandleDeleteUpload)
 
 	var handler http.Handler = mux
@@ -61,6 +67,7 @@ func (s *Server) BuildEndpoints(log *slog.Logger, auth *auth.Middleware) http.Ha
 }
 
 func (s *Server) Start(ctx context.Context, onFatalErr func()) {
+	s.httpServer.BaseContext = func(net.Listener) context.Context { return ctx }
 	log := logger.FromContext(ctx)
 
 	log.InfoContext(ctx, "http server ready", slog.Int("port", s.config.Port))

@@ -8,8 +8,11 @@ import (
 	"time"
 
 	"github.com/TSM-061/Raggy/rag/internal/rag"
+	"github.com/TSM-061/Raggy/shared/kafkawork"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/message/chunk"
+	"github.com/TSM-061/Raggy/shared/message/upload"
+	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -35,6 +38,8 @@ func New(config *Config, tracker *tracker) (*Runner, error) {
 		kgo.ConsumerGroup("rag-service"),
 		kgo.ConsumeTopics(chunk.TopicName),
 		kgo.WithHooks(telemetry.NewKafkaHook()),
+		kgo.DisableAutoCommit(),
+		kgo.BlockRebalanceOnPoll(),
 
 		kgo.SessionTimeout(2*time.Second),
 		kgo.HeartbeatInterval(800*time.Millisecond),
@@ -51,13 +56,14 @@ func New(config *Config, tracker *tracker) (*Runner, error) {
 }
 
 func (c *Runner) Start(ctx context.Context) {
+	defer c.client.AllowRebalance()
 	log := logger.FromContext(ctx)
 	log.InfoContext(ctx, "kafka consumer ready")
 
 	for {
 		fetches := c.client.PollRecords(ctx, c.config.MaxPollRecords)
 
-		if fetches.IsClientClosed() {
+		if fetches.IsClientClosed() || ctx.Err() != nil {
 			return
 		}
 
@@ -66,13 +72,13 @@ func (c *Runner) Start(ctx context.Context) {
 		}
 
 		for record := range fetches.RecordsAll() {
-			ctx = telemetry.Extract(ctx, record)
-
-			if err := c.ProcessMessage(ctx, record); err != nil {
-				log.ErrorContext(ctx, "error processing message", slog.Any("error", err))
+			recordCtx := telemetry.Extract(ctx, record)
+			if !kafkawork.ProcessRecord(recordCtx, c.client, record, c.ProcessMessage) {
+				c.client.AllowRebalance()
+				return
 			}
-
 		}
+		c.client.AllowRebalance()
 	}
 }
 
@@ -82,7 +88,7 @@ func (c *Runner) ProcessMessage(ctx context.Context, record *kgo.Record) error {
 	var msg chunk.Message
 
 	if err := json.Unmarshal(record.Value, &msg); err != nil {
-		return fmt.Errorf("unmarhsal chunk message: %w", err)
+		return fmt.Errorf("%w: decode chunk message", serviceerr.InvalidInput)
 	}
 
 	log = log.With(slog.String("upload_id", msg.UploadID))
@@ -104,22 +110,30 @@ func (c *Runner) HandleChunkStream(ctx context.Context, msg chunk.Message) error
 	var payload chunk.StreamPayload
 
 	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-		return fmt.Errorf("unmarshal chunk stream payload: %w", err)
+		return fmt.Errorf("%w: decode chunk payload", serviceerr.InvalidInput)
 	}
 
 	uploadID, err := uuid.Parse(msg.UploadID)
 	if err != nil {
-		return fmt.Errorf("parse upload id: %w", err)
+		return fmt.Errorf("%w: invalid upload id", serviceerr.InvalidInput)
 	}
 
-	if err := c.tracker.TrackAndProcessChunk(ctx, &rag.ChunkInformation{
+	progress, err := c.tracker.TrackAndProcessChunk(ctx, &rag.ChunkInformation{
 		UploadID:      uploadID,
 		ChunkIndex:    payload.Index,
 		ChunkTotal:    payload.Total,
 		Content:       payload.Content,
 		ContentString: payload.ContentString,
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("ingest chunk[%d]: %w", payload.Index, err)
+	}
+	data, err := json.Marshal(progress)
+	if err != nil {
+		return err
+	}
+	if err := c.client.ProduceSync(ctx, &kgo.Record{Topic: upload.ProgressTopic, Key: []byte(msg.UploadID), Value: data}).FirstErr(); err != nil {
+		return fmt.Errorf("publish chunk progress: %w", err)
 	}
 
 	return nil

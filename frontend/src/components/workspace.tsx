@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AnswerPanel } from "#/components/answer-panel";
+import { ChunkProgress } from "#/components/chunk-progress";
 import { LoginForm } from "#/components/login-form";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -41,6 +42,7 @@ import {
 	type UploadPage,
 } from "#/lib/api";
 import { DEMO_MODE, SAMPLE_QUESTION } from "#/lib/demo-api";
+import { useUploadEvents } from "#/lib/use-upload-events";
 import { cn } from "#/lib/utils";
 
 function Brand({ inverse = false }: { inverse?: boolean }) {
@@ -67,6 +69,7 @@ export function WorkspaceApp() {
 	const [page, setPage] = useState(1);
 	const client = useQueryClient();
 	useEffect(() => setMounted(true), []);
+	const [liveConnected, setLiveConnected] = useState(false);
 	const uploads = useQuery({
 		queryKey: ["uploads", page],
 		queryFn: ({ signal }) => listUploads(page, signal),
@@ -74,8 +77,17 @@ export function WorkspaceApp() {
 		placeholderData: keepPreviousData,
 		retry: false,
 		refetchInterval: (query) =>
-			query.state.data && !query.state.error ? 5000 : false,
+			!(query.state.error instanceof SessionExpired)
+				? liveConnected
+					? 30000
+					: 5000
+				: false,
 	});
+
+	const connected = useUploadEvents(
+		mounted && !signedOut && !(uploads.error instanceof SessionExpired),
+	);
+	useEffect(() => setLiveConnected(connected), [connected]);
 
 	function leaveSession() {
 		setSignedOut(true);
@@ -737,6 +749,9 @@ function AskWorkspace({
 													<span>·</span>
 													<span>{statusLabel(item.status)}</span>
 												</div>
+												<div className="mt-2">
+													<ChunkProgress upload={item} />
+												</div>
 											</div>
 										</div>
 									))}
@@ -769,8 +784,8 @@ function AskWorkspace({
 						</p>
 					</div>
 					<p className="px-1 text-[10px] leading-5 text-muted-foreground">
-						Recently uploaded documents may still be processing. Upload status
-						does not confirm that a document is searchable.
+						Progress updates as document chunks are embedded. Documents are
+						ready once all expected chunks have completed.
 					</p>
 				</aside>
 			</div>
@@ -783,9 +798,11 @@ function statusLabel(status: string) {
 		? "Awaiting upload"
 		: status === "uploaded"
 			? "Uploaded"
-			: status === "processed"
-				? "Processed"
-				: status;
+			: status === "processing"
+				? "Processing"
+				: status === "processed"
+					? "Ready"
+					: status;
 }
 
 function Documents({
@@ -848,6 +865,9 @@ function Documents({
 										Status
 									</th>
 									<th className="px-4 py-3 font-medium" scope="col">
+										Progress
+									</th>
+									<th className="px-4 py-3 font-medium" scope="col">
 										Size
 									</th>
 									<th className="px-5 py-3 font-medium" scope="col">
@@ -879,6 +899,9 @@ function Documents({
 												<span className="size-1 rounded-full bg-current" />
 												{statusLabel(item.status)}
 											</Badge>
+										</td>
+										<td className="px-4 py-5">
+											<ChunkProgress upload={item} />
 										</td>
 										<td className="whitespace-nowrap px-4 py-5 text-muted-foreground">
 											{formatBytes(item.sizeBytes)}
@@ -941,8 +964,8 @@ function Documents({
 			</Card>
 			<p className="mt-5 flex items-start gap-2 text-xs leading-6 text-muted-foreground">
 				<ArrowDown className="mt-1 size-3.5 shrink-0" />
-				Uploaded documents are processed in the background. Search readiness is
-				not yet reported here.
+				Chunk counts update automatically. Ready means all expected chunks have
+				been persisted.
 			</p>
 		</>
 	);

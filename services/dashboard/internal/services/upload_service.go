@@ -226,3 +226,10 @@ func (s *Upload) DeleteUpload(ctx context.Context, req *DeleteUploadCommand) err
 
 	return s.uploads.DeleteByID(ctx, req.UploadID)
 }
+
+func (s *Upload) ApplyProgress(ctx context.Context, id uuid.UUID, total, processed int) error {
+	if id == uuid.Nil || total < 0 || processed < 0 || processed > total {
+		return serviceerr.InvalidInput
+	}
+	return s.uploads.ApplyProgress(ctx, id, total, processed)
+}

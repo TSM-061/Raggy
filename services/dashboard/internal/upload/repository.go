@@ -11,5 +11,6 @@ type Repo interface {
 	List(ctx context.Context, limit int, offset int) ([]Upload, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*Upload, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status Status) error
+	ApplyProgress(ctx context.Context, id uuid.UUID, total, processed int) error
 	DeleteByID(ctx context.Context, id uuid.UUID) error
 }

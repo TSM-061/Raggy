@@ -36,28 +36,32 @@ type listUploadsResponse struct {
 }
 
 type uploadResponse struct {
-	ID           string    `json:"id"`
-	UploadedBy   string    `json:"uploadedBy"`
-	OriginalName string    `json:"originalName"`
-	ContentType  string    `json:"contentType"`
-	ProfileHint  string    `json:"profileHint"`
-	SizeBytes    int64     `json:"sizeBytes"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ChunkTotal      *int      `json:"chunkTotal"`
+	ChunksProcessed int       `json:"chunksProcessed"`
+	ID              string    `json:"id"`
+	UploadedBy      string    `json:"uploadedBy"`
+	OriginalName    string    `json:"originalName"`
+	ContentType     string    `json:"contentType"`
+	ProfileHint     string    `json:"profileHint"`
+	SizeBytes       int64     `json:"sizeBytes"`
+	Status          string    `json:"status"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
 func toUploadResponse(u *upload.Upload) uploadResponse {
 	return uploadResponse{
-		ID:           u.ID.String(),
-		UploadedBy:   u.UploadedBy.String(),
-		OriginalName: u.OriginalName,
-		ContentType:  u.ContentType,
-		ProfileHint:  u.ProfileHint,
-		SizeBytes:    u.SizeBytes,
-		Status:       string(u.Status),
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
+		ID:              u.ID.String(),
+		UploadedBy:      u.UploadedBy.String(),
+		OriginalName:    u.OriginalName,
+		ContentType:     u.ContentType,
+		ProfileHint:     u.ProfileHint,
+		SizeBytes:       u.SizeBytes,
+		Status:          string(u.Status),
+		ChunkTotal:      u.ChunkTotal,
+		ChunksProcessed: u.ChunksProcessed,
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
 	}
 }
 

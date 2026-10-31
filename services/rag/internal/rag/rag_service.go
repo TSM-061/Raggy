@@ -54,10 +54,12 @@ type ChunkInformation struct {
 }
 
 func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
-	// TODO check if chunk if file is completely processed and notify on uploads topic
 
 	log := logger.FromContext(ctx)
 
+	if info == nil || info.UploadID == uuid.Nil {
+		return fmt.Errorf("%w: missing chunk information", serviceerr.InvalidInput)
+	}
 	if info.ChunkIndex < 0 || info.ChunkIndex >= info.ChunkTotal {
 		return fmt.Errorf(
 			"%w: chunk index %d out of bounds, range [0,%d)",
@@ -98,6 +100,10 @@ func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
 	)
 
 	return nil
+}
+
+func (r *RAG) ProcessedChunks(ctx context.Context, uploadID uuid.UUID) (int, error) {
+	return r.chunks.CountByUploadID(ctx, uploadID)
 }
 
 type SearchQuery struct {

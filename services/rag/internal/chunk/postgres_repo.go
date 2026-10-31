@@ -24,6 +24,8 @@ func (r *PostgresRepo) Create(ctx context.Context, chunk *Chunk) error {
 	query := `
 		INSERT INTO chunks (upload_id, chunk_index, content, embedding)
 		VALUES ($1, $2, $3::jsonb, $4::vector)
+		ON CONFLICT (upload_id, chunk_index) DO UPDATE
+		SET content = EXCLUDED.content, embedding = EXCLUDED.embedding
 		RETURNING id, created_at;
 	`
 
@@ -44,6 +46,12 @@ func (r *PostgresRepo) Create(ctx context.Context, chunk *Chunk) error {
 	}
 
 	return nil
+}
+
+func (r *PostgresRepo) CountByUploadID(ctx context.Context, id uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM chunks WHERE upload_id = $1 AND embedding IS NOT NULL", id).Scan(&count)
+	return count, err
 }
 
 func (r *PostgresRepo) Search(ctx context.Context, queryVector []float32, limit int) ([]Chunk, error) {

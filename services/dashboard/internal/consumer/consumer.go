@@ -3,15 +3,18 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/TSM-061/Raggy/dashboard/internal/services"
 	"github.com/TSM-061/Raggy/dashboard/internal/upload"
+	"github.com/TSM-061/Raggy/shared/kafkawork"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/message/s3"
 	uploadmsg "github.com/TSM-061/Raggy/shared/message/upload"
+	"github.com/TSM-061/Raggy/shared/serviceerr"
 	"github.com/TSM-061/Raggy/shared/telemetry"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -32,7 +35,9 @@ func New(cfg *Config, uploads *services.Upload) (*Runner, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(cfg.SeedBrokers...),
 		kgo.ConsumerGroup("dashboard-service"),
-		kgo.ConsumeTopics("s3-events"),
+		kgo.ConsumeTopics("s3-events", uploadmsg.ProgressTopic),
+		kgo.DisableAutoCommit(),
+		kgo.BlockRebalanceOnPoll(),
 		kgo.WithHooks(telemetry.NewKafkaHook()),
 
 		kgo.SessionTimeout(2*time.Second),
@@ -50,13 +55,14 @@ func New(cfg *Config, uploads *services.Upload) (*Runner, error) {
 }
 
 func (r *Runner) Start(ctx context.Context) {
+	defer r.client.AllowRebalance()
 	log := logger.FromContext(ctx)
 	log.InfoContext(ctx, "kafka consumer ready")
 
 	for {
 		fetches := r.client.PollRecords(ctx, r.config.MaxPollRecords)
 
-		if fetches.IsClientClosed() {
+		if fetches.IsClientClosed() || ctx.Err() != nil {
 			return
 		}
 
@@ -67,12 +73,52 @@ func (r *Runner) Start(ctx context.Context) {
 		for record := range fetches.RecordsAll() {
 			recordCtx := telemetry.Extract(ctx, record)
 
-			if errs := r.processMessage(recordCtx, record); len(errs) > 0 {
-				log.ErrorContext(recordCtx, "error processing message", slog.Any("errors", errs))
+			if !kafkawork.ProcessRecord(recordCtx, r.client, record, r.processRecord) {
+				r.client.AllowRebalance()
+				return
 			}
-
 		}
+		r.client.AllowRebalance()
 	}
+}
+
+func (r *Runner) processRecord(ctx context.Context, record *kgo.Record) error {
+	if record.Topic != uploadmsg.ProgressTopic {
+		errs := r.processMessage(ctx, record)
+		var retry []error
+		for _, err := range errs {
+			if !errors.Is(err, serviceerr.InvalidInput) && !errors.Is(err, serviceerr.NotFound) {
+				retry = append(retry, err)
+			}
+		}
+		if len(retry) > 0 {
+			return errors.Join(retry...)
+		}
+		if len(errs) > 0 {
+			return serviceerr.InvalidInput
+		}
+		return nil
+	}
+	var event uploadmsg.ProgressMessage
+	if err := json.Unmarshal(record.Value, &event); err != nil {
+		return serviceerr.InvalidInput
+	}
+	if event.Type != uploadmsg.Progress {
+		return nil
+	}
+	if err := event.Validate(); err != nil {
+		return serviceerr.InvalidInput
+	}
+	id, err := uuid.Parse(event.UploadID)
+	if err != nil {
+		return serviceerr.InvalidInput
+	}
+	err = r.uploads.ApplyProgress(ctx, id, event.ChunkTotal, event.ChunksProcessed)
+	// A deleted upload must not block an entire Kafka partition.
+	if errors.Is(err, serviceerr.NotFound) {
+		return nil
+	}
+	return err
 }
 
 func (r *Runner) processMessage(ctx context.Context, record *kgo.Record) []error {
@@ -81,7 +127,7 @@ func (r *Runner) processMessage(ctx context.Context, record *kgo.Record) []error
 	errs := make([]error, 0)
 
 	if err := json.Unmarshal(record.Value, &msg); err != nil {
-		errs = append(errs, fmt.Errorf("unmarhsal s3 message: %w", err))
+		errs = append(errs, fmt.Errorf("%w: invalid S3 message", serviceerr.InvalidInput))
 		return errs
 	}
 
@@ -101,7 +147,7 @@ func (r *Runner) handleS3Record(ctx context.Context, s3Record s3.Record) error {
 
 	uploadID, err := uuid.Parse(s3Record.S3.Object.Key)
 	if err != nil {
-		return fmt.Errorf("parse object key %q: %w", s3Record.S3.Object.Key, err)
+		return fmt.Errorf("%w: invalid S3 object key", serviceerr.InvalidInput)
 	}
 
 	if s3Record.EventName != "s3:ObjectCreated:Put" {

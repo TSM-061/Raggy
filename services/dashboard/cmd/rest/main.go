@@ -10,6 +10,7 @@ import (
 
 	"github.com/TSM-061/Raggy/dashboard/internal/config"
 	"github.com/TSM-061/Raggy/dashboard/internal/consumer"
+	"github.com/TSM-061/Raggy/dashboard/internal/progress"
 	"github.com/TSM-061/Raggy/dashboard/internal/services"
 	"github.com/TSM-061/Raggy/dashboard/internal/upload"
 	"github.com/TSM-061/Raggy/dashboard/internal/web"
@@ -74,7 +75,9 @@ func main() {
 	clock := clock.LiveClock{}
 	verifier := auth.NewTokenVerifier(&clock, cfg.AccessTokenPublicKey)
 	auth := auth.NewMiddleware(verifier)
-	server := web.NewServer(cfg, log, auth, uploadService)
+	hub := progress.NewHub()
+	go hub.Run(runCtx, pool.Config().ConnConfig)
+	server := web.NewServer(cfg, log, auth, uploadService, hub)
 
 	go consumer.Start(runCtx)
 	go server.Start(runCtx, stop)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-TOPICS=("s3-events" "uploads" "chunks")
+TOPICS=("s3-events" "uploads" "chunks" "upload-progress")
 
 for topic in "${TOPICS[@]}"; do
   /opt/kafka/bin/kafka-topics.sh \

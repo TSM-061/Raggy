@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/TSM-061/Raggy/ingestion-worker/internal/projectreportmd"
+	"github.com/TSM-061/Raggy/shared/kafkawork"
 	"github.com/TSM-061/Raggy/shared/logger"
 	"github.com/TSM-061/Raggy/shared/message/chunk"
 	"github.com/TSM-061/Raggy/shared/message/upload"
@@ -42,6 +43,8 @@ func New(cfg *Config, uploads Downloader) (*Runner, error) {
 		kgo.ConsumerGroup("ingestion-worker"),
 		kgo.ConsumeTopics(upload.TopicName),
 		kgo.WithHooks(telemetry.NewKafkaHook()),
+		kgo.DisableAutoCommit(),
+		kgo.BlockRebalanceOnPoll(),
 
 		kgo.SessionTimeout(2*time.Second),
 		kgo.HeartbeatInterval(800*time.Millisecond),
@@ -58,13 +61,14 @@ func New(cfg *Config, uploads Downloader) (*Runner, error) {
 }
 
 func (c *Runner) Start(ctx context.Context) {
+	defer c.client.AllowRebalance()
 	log := logger.FromContext(ctx)
 	log.InfoContext(ctx, "kafka consumer ready")
 
 	for {
 		fetches := c.client.PollRecords(ctx, c.config.MaxPollRecords)
 
-		if fetches.IsClientClosed() {
+		if fetches.IsClientClosed() || ctx.Err() != nil {
 			return
 		}
 
@@ -80,38 +84,27 @@ func (c *Runner) Start(ctx context.Context) {
 				trace.WithLinks(trace.LinkFromContext(telemetry.Extract(ctx, record))),
 			)
 
-			c.handleUploadMessage(recordCtx, record)
+			ok := kafkawork.ProcessRecord(recordCtx, c.client, record, c.handleUploadMessage)
 
 			span.End()
+			if !ok {
+				c.client.AllowRebalance()
+				return
+			}
 		}
+		c.client.AllowRebalance()
 	}
 }
 
-func (c *Runner) handleUploadMessage(ctx context.Context, record *kgo.Record) {
-	log := logger.FromContext(ctx)
+func (c *Runner) handleUploadMessage(ctx context.Context, record *kgo.Record) error {
 	var msg upload.CompletedMessage
-
 	if err := json.Unmarshal(record.Value, &msg); err != nil {
-		log.ErrorContext(ctx, "failed to unmarshal message", slog.Any("error", err))
-		return
+		return fmt.Errorf("%w: invalid upload message", serviceerr.InvalidInput)
 	}
-
-	log = log.With(slog.String("upload_id", msg.UploadID))
-	ctx = logger.ToContext(ctx, log)
-
-	switch msg.Type {
-	case upload.Completed:
-		if err := c.handleUploadCompleted(ctx, msg); err != nil {
-			log.ErrorContext(ctx, "failed to handle upload message", slog.Any("error", err))
-			return
-		}
-	default:
-		log.DebugContext(ctx,
-			"ignoring unsupported upload message",
-			slog.String("type", string(msg.Type)),
-		)
+	if msg.Type != upload.Completed {
+		return nil
 	}
-
+	return c.handleUploadCompleted(ctx, msg)
 }
 
 func (c *Runner) handleUploadCompleted(
@@ -120,17 +113,16 @@ func (c *Runner) handleUploadCompleted(
 
 	uploadID, err := uuid.Parse(msg.UploadID)
 	if err != nil {
-		return fmt.Errorf("parse upload id: %w", err)
+		return fmt.Errorf("%w: invalid upload id", serviceerr.InvalidInput)
 	}
 
 	downloadCtx, downloadSpan := tracer.Start(ctx, "Upload.Download")
 
 	data, err := c.uploads.Download(downloadCtx, uploadID)
+	downloadSpan.End()
 	if err != nil {
 		return fmt.Errorf("read from bucket: %w", err)
 	}
-
-	downloadSpan.End()
 
 	log = log.With(
 		slog.String("profile_hint", string(msg.ProfileHint)),
@@ -138,24 +130,14 @@ func (c *Runner) handleUploadCompleted(
 	ctx = logger.ToContext(ctx, log)
 
 	_, span := tracer.Start(ctx, "Upload.Chunking")
+	defer span.End()
 
 	switch msg.ProfileHint {
 	case upload.ProjectReportMd:
-		if err := c.handleProjectReportMarkdown(ctx, msg, data); err != nil {
-			log.ErrorContext(ctx, "failed to process file", slog.Any("error", err))
-
-		}
+		return c.handleProjectReportMarkdown(ctx, msg, data)
 	default:
-		log.ErrorContext(
-			ctx,
-			"unsupported profile hint",
-			slog.Any("error", serviceerr.InvalidInput),
-		)
+		return fmt.Errorf("%w: unsupported profile", serviceerr.InvalidInput)
 	}
-
-	span.End()
-
-	return nil
 }
 
 func (c *Runner) handleProjectReportMarkdown(ctx context.Context, uploadMsg upload.CompletedMessage, data []byte) error {
@@ -212,6 +194,14 @@ func (c *Runner) handleProjectReportMarkdown(ctx context.Context, uploadMsg uplo
 		}
 	}
 
+	progress, err := json.Marshal(upload.ProgressMessage{Type: upload.Progress, UploadID: uploadMsg.UploadID, ChunkTotal: len(report.Sections), ChunksProcessed: 0})
+	if err != nil {
+		return err
+	}
+	// Announce the expected total even for a document with no sections.
+	if err := c.client.ProduceSync(ctx, &kgo.Record{Topic: upload.ProgressTopic, Key: []byte(uploadMsg.UploadID), Value: progress}).FirstErr(); err != nil {
+		return err
+	}
 	if err := c.client.ProduceSync(ctx, messages...).FirstErr(); err != nil {
 		return fmt.Errorf(
 			"produce chunk stream messages (chunk_total=%d): %w",

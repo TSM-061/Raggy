@@ -5,12 +5,12 @@ A responsive React interface built with TanStack Start, Tailwind CSS, and shadcn
 ## Features
 
 - Sign in, automatic access-token refresh, session-expiry handling, and sign out.
-- A paginated documents list that refreshes every five seconds while connected.
+- A paginated documents list with live chunk-completion counts, progress bars, and server event updates with polling fallback.
 - Markdown document uploads through the dashboard API and its signed storage URL, with file validation and transfer retry.
 - Questions across the workspace, cancellable requests, explicit insufficient-evidence results, and source excerpts opened from inline citations.
 - Responsive layouts, keyboard navigation, accessible dialog primitives, and loading, empty, and error states.
 
-The dashboard currently reports upload status but does not receive embedding-completion events. The UI displays these statuses without presenting uploaded documents as searchable. It does not add document-level query filters or deletion controls.
+The dashboard records expected and completed chunks and marks a document ready when all expected embeddings have been persisted. Existing documents without completion events show an unknown chunk total. See [chunk progress](../docs/chunk-progress.md) for event delivery, migrations, and deployment details. The UI does not add document-level query filters or deletion controls.
 
 ## Run locally
 

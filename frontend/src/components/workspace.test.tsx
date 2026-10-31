@@ -24,6 +24,43 @@ const document = {
 	createdAt: "2026-10-30T00:00:00Z",
 };
 const page = { uploads: [document], pageNumber: 1, pageSize: 20, total: 1 };
+
+it("updates chunk counts and readiness after a server event", async () => {
+	let completed = 0;
+	let notify: (() => void) | undefined;
+	class Stream {
+		close() {}
+		addEventListener(_name: string, callback: () => void) {
+			notify = callback;
+		}
+	}
+	vi.stubGlobal("EventSource", Stream);
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async () =>
+			Response.json({
+				...page,
+				uploads: [
+					{
+						...document,
+						chunkTotal: 3,
+						chunksProcessed: completed,
+						status: completed === 3 ? "processed" : "processing",
+					},
+				],
+			}),
+		),
+	);
+	mount();
+	expect(await screen.findByText("0 / 3 chunks")).toBeTruthy();
+	completed = 3;
+	notify?.();
+	expect(await screen.findByText("3 / 3 chunks")).toBeTruthy();
+	expect(screen.getByText("Ready")).toBeTruthy();
+	expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe(
+		"100",
+	);
+});
 const answer = {
 	status: "answered",
 	response: "The deck supports 200-tonne cranes [S1].",

@@ -3,6 +3,8 @@ export type Upload = {
 	originalName: string;
 	sizeBytes: number;
 	status: string;
+	chunkTotal?: number | null;
+	chunksProcessed?: number;
 	createdAt: string;
 };
 export type UploadPage = {

@@ -80,6 +80,8 @@ func (r *PostgresRepo) List(
 			profile_hint,
 			size_bytes,
 			status,
+            chunk_total,
+            chunks_processed,
 			created_at,
 			updated_at
 		FROM uploads
@@ -116,6 +118,8 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id uuid.UUID) (*Upload, erro
 			profile_hint,
 			size_bytes,
 			status,
+            chunk_total,
+            chunks_processed,
 			created_at,
 			updated_at
 		FROM uploads
@@ -131,6 +135,8 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id uuid.UUID) (*Upload, erro
 		&upload.ProfileHint,
 		&upload.SizeBytes,
 		&upload.Status,
+		&upload.ChunkTotal,
+		&upload.ChunksProcessed,
 		&upload.CreatedAt,
 		&upload.UpdatedAt,
 	)
@@ -156,7 +162,7 @@ func (r *PostgresRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status St
 
 	query := `
 		UPDATE uploads
-		SET status = $2,
+		SET status = CASE WHEN $2 = 'uploaded' AND status IN ('processing', 'processed') THEN status ELSE $2 END,
 			updated_at = NOW()
 		WHERE id = $1;
 	`
@@ -197,4 +203,41 @@ func (r *PostgresRepo) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// ApplyProgress atomically merges cumulative counts. Older snapshots cannot
+// decrement progress, and the total cannot change once an upload is identified.
+func (r *PostgresRepo) ApplyProgress(ctx context.Context, id uuid.UUID, total, processed int) error {
+	if total < 0 || processed < 0 || processed > total {
+		return serviceerr.InvalidInput
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	result, err := tx.Exec(ctx, `UPDATE uploads SET
+		chunk_total = $2,
+		chunks_processed = GREATEST(chunks_processed, $3),
+		status = CASE WHEN GREATEST(chunks_processed, $3) = $2 THEN 'processed' ELSE 'processing' END,
+		updated_at = NOW()
+		WHERE id = $1 AND (chunk_total IS NULL OR chunk_total = $2)`, id, total, processed)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		var exists bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM uploads WHERE id = $1)", id).Scan(&exists); err != nil {
+			return err
+		}
+		if exists {
+			return fmt.Errorf("%w: conflicting chunk total", serviceerr.InvalidInput)
+		}
+		return serviceerr.NotFound
+	}
+	// Notifications are delivered only after the surrounding transaction commits.
+	if _, err := tx.Exec(ctx, "SELECT pg_notify('upload_progress', 'changed')"); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
