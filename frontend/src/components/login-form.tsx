@@ -1,61 +1,73 @@
-import { cn } from "#/lib/utils.ts";
-import { Button } from "#/components/ui/button.tsx";
-import { Field, FieldGroup, FieldLabel } from "#/components/ui/field.tsx";
-import { Input } from "#/components/ui/input.tsx";
+import { ArrowRight, LoaderCircle } from "lucide-react";
+import { useState } from "react";
+import { Button } from "#/components/ui/button";
+import { Input } from "#/components/ui/input";
+import { Label } from "#/components/ui/label";
+import { api } from "#/lib/api";
 
-export function LoginForm({
-  className,
-  ...props
-}: React.ComponentProps<"form">) {
-  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const req = new Request("http://localhost/api/auth/signin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        Object.fromEntries(new FormData(event.currentTarget)),
-      ),
-    });
-
-    const res = await fetch(req);
-
-    console.log(res);
-  }
-
-  return (
-    <form
-      className={cn("flex flex-col gap-6", className)}
-      {...props}
-      onSubmit={handleSubmit}
-    >
-      <FieldGroup>
-        <div className="flex flex-col items-center gap-1 text-center">
-          <h1 className="text-2xl font-bold">Login to your account</h1>
-          <p className="text-sm text-balance text-muted-foreground">
-            Enter your username below to login to your account
-          </p>
-        </div>
-        <Field>
-          <FieldLabel htmlFor="username">Username</FieldLabel>
-          <Input
-            id="username"
-            type="username"
-            name="username"
-            placeholder="jsmith"
-            required
-          />
-        </Field>
-        <Field>
-          <div className="flex items-center">
-            <FieldLabel htmlFor="password">Password</FieldLabel>
-          </div>
-          <Input id="password" type="password" name="password" required />
-        </Field>
-        <Field>
-          <Button type="submit">Login</Button>
-        </Field>
-      </FieldGroup>
-    </form>
-  );
+export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
+	const [pending, setPending] = useState(false);
+	const [error, setError] = useState("");
+	async function submit(event: React.SubmitEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setError("");
+		setPending(true);
+		const data = Object.fromEntries(new FormData(event.currentTarget));
+		try {
+			await api("/api/auth/signin", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(data),
+			});
+			onSuccess();
+		} catch (err) {
+			setError(
+				err instanceof Error
+					? err.message
+					: "Could not sign in. Please try again.",
+			);
+		} finally {
+			setPending(false);
+		}
+	}
+	return (
+		<form onSubmit={submit} className="space-y-5">
+			<div className="space-y-2">
+				<Label htmlFor="username">Username</Label>
+				<Input
+					autoComplete="username"
+					id="username"
+					name="username"
+					placeholder="Your username"
+					required
+					className="h-11"
+				/>
+			</div>
+			<div className="space-y-2">
+				<Label htmlFor="password">Password</Label>
+				<Input
+					autoComplete="current-password"
+					id="password"
+					type="password"
+					name="password"
+					placeholder="Your password"
+					required
+					className="h-11"
+				/>
+			</div>
+			{error && (
+				<p
+					role="alert"
+					className="rounded-lg bg-destructive/5 p-3 text-sm text-destructive"
+				>
+					{error}
+				</p>
+			)}
+			<Button type="submit" disabled={pending} className="h-11 w-full">
+				{pending && <LoaderCircle className="animate-spin" />}
+				{pending ? "Signing in…" : "Sign in to your workspace"}
+				{!pending && <ArrowRight />}
+			</Button>
+		</form>
+	);
 }
