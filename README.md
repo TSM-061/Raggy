@@ -22,11 +22,15 @@ _A high-level overview of the services that make up the pipeline._
 
 **Centralized Logging:** Collects Docker container logs with Grafana Alloy and stores them in Loki, with Grafana providing an interface for exploring logs and traces.
 
+<br>
+
 ![Auth Service](.assets/header-auth-service.svg)
 
 **Session Management:** Generates and manages Access and Refresh tokens to handle authentication and user sessions.
 
 **Stateless:** Implements asymmetric public/private key token verification so downstream services can verify identity without querying a central database or the authentication service.
+
+<br>
 
 ![Dashboard Service](.assets/header-dashboard-service.svg)
 
@@ -34,17 +38,23 @@ _A high-level overview of the services that make up the pipeline._
 
 **Real-time Feedback:** Tracks and surfaces metrics regarding processing states and ingestion status directly to the client.
 
+<br>
+
 ![Ingestion Worker](.assets/header-ingestion-worker.svg)
 
 **Data Extraction:** Pulls raw files staged in AWS S3 storage as soon as an ingestion job triggers.
 
 **Parsing & Chunking:** Processes the contents, breaking the raw input into chunks tailored for downstream vector embedding.
 
+<br>
+
 ![RAG Service](.assets/header-rag-service.svg)
 
 **Embedding Generation:** Converts text chunks into vector representations, handling the embeddings process either locally or via external APIs like Gemini.
 
 **Contextual Querying:** Orchestrates the core RAG logic by retrieving relevant document chunks based on a user's prompt and feeding that grounded context into the LLM API to generate accurate answers.
+
+<br>
 
 ## Attributions
 
