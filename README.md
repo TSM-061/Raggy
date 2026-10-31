@@ -11,10 +11,16 @@ For local pipeline development without a Gemini key or external AI calls, set `A
 
 <br>
 
-![Raggy High Level Service Map](.assets/high-level-infra-overview.svg)
+![Raggy High Level Service Map](.assets/high-level-infra-overview.png)
 _A high-level overview of the services that make up the pipeline._
 
 <br>
+
+![Observability](.assets/header-observability.svg)
+
+**Distributed Tracing:** Uses OpenTelemetry to trace requests and document processing across services, with traces stored in Grafana Tempo.
+
+**Centralized Logging:** Collects Docker container logs with Grafana Alloy and stores them in Loki, with Grafana providing an interface for exploring logs and traces.
 
 ![Auth Service](.assets/header-auth-service.svg)
 
@@ -39,3 +45,13 @@ _A high-level overview of the services that make up the pipeline._
 **Embedding Generation:** Converts text chunks into vector representations, handling the embeddings process either locally or via external APIs like Gemini.
 
 **Contextual Querying:** Orchestrates the core RAG logic by retrieving relevant document chunks based on a user's prompt and feeding that grounded context into the LLM API to generate accurate answers.
+
+## Attributions
+
+The icons used in the SVG service headers are from [Noun Project](https://thenounproject.com/) and licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/):
+
+- [Binoculars](https://thenounproject.com/browse/icons/term/binoculars/) by Symbolon — Observability.
+- [Lock](https://thenounproject.com/browse/icons/term/lock/) by Danil Polshin — Auth Service.
+- [dashboard](https://thenounproject.com/browse/icons/term/dashboard/) by iconisme — Dashboard Service.
+- [CPU](https://thenounproject.com/browse/icons/term/cpu/) by Kasanah — Ingestion Worker.
+- [AI](https://thenounproject.com/browse/icons/term/ai/) by Moala Imkong Imsong — RAG Service.
