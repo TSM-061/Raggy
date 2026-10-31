@@ -25,6 +25,7 @@ func NewManager(secret string, sessions Repo) *Manager {
 	}
 }
 
+// Create persists a session and returns its refresh token.
 func (m *Manager) Create(ctx context.Context, userId uuid.UUID) (string, error) {
 	log := logger.FromContext(ctx)
 
@@ -70,6 +71,7 @@ type RefreshResult struct {
 	RefreshToken string
 }
 
+// Refresh validates a refresh token and rotates its session secret.
 func (m *Manager) Refresh(ctx context.Context, token string) (*RefreshResult, error) {
 	log := logger.FromContext(ctx)
 
@@ -111,6 +113,7 @@ func (m *Manager) Refresh(ctx context.Context, token string) (*RefreshResult, er
 	}, nil
 }
 
+// Delete validates a refresh token before revoking its session.
 func (m *Manager) Delete(ctx context.Context, token string) error {
 	log := logger.FromContext(ctx)
 

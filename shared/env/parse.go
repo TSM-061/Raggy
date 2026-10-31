@@ -10,6 +10,7 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
+// Parse loads environment settings with the application’s key and log-level parsers.
 func Parse(value any) error {
 	return env.ParseWithOptions(value, env.Options{
 		FuncMap: map[reflect.Type]env.ParserFunc{

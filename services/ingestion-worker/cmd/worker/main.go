@@ -12,6 +12,7 @@ import (
 	"github.com/TSM-061/Raggy/shared/telemetry"
 )
 
+// main starts the document ingestion worker and its storage connection.
 func main() {
 
 	cfg, err := config.LoadConfig()

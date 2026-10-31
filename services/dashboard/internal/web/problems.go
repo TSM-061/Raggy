@@ -30,6 +30,7 @@ func WriteProblem(w http.ResponseWriter, p ProblemDetails) {
 	json.NewEncoder(w).Encode(p)
 }
 
+// ValidationProblem writes validation details and reports whether the error was handled.
 func ValidationProblem(w http.ResponseWriter, err error) bool {
 	var ve validator.ValidationErrors
 	if !errors.As(err, &ve) {

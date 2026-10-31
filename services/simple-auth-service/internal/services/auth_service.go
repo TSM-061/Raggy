@@ -41,6 +41,7 @@ func NewAuthService(
 	}
 }
 
+// Register validates account details and stores a user with a hashed password.
 func (s *Auth) Register(
 	ctx context.Context, username string, password string) (*user.User, error) {
 	log := logger.FromContext(ctx)
@@ -111,6 +112,7 @@ type TokenPair struct {
 	RefreshToken string
 }
 
+// Signin authenticates credentials and issues access and refresh tokens.
 func (s *Auth) Signin(
 	ctx context.Context, username string, plaintextPassword string) (*AuthResult, error) {
 
@@ -145,6 +147,7 @@ func (s *Auth) Signin(
 	}, nil
 }
 
+// Refresh rotates the session token and issues a new access token.
 func (s *Auth) Refresh(ctx context.Context, token string) (*AuthResult, error) {
 	refreshResult, err := s.sessionManager.Refresh(ctx, token)
 	if err != nil {

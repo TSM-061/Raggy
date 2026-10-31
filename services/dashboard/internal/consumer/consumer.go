@@ -31,6 +31,7 @@ type Runner struct {
 	uploads *services.Upload
 }
 
+// New configures the consumer for storage notifications and processing progress.
 func New(cfg *Config, uploads *services.Upload) (*Runner, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(cfg.SeedBrokers...),
@@ -54,6 +55,7 @@ func New(cfg *Config, uploads *services.Upload) (*Runner, error) {
 	}, nil
 }
 
+// Start processes events until shutdown and commits completed work.
 func (r *Runner) Start(ctx context.Context) {
 	defer r.client.AllowRebalance()
 	log := logger.FromContext(ctx)
@@ -82,6 +84,7 @@ func (r *Runner) Start(ctx context.Context) {
 	}
 }
 
+// processRecord routes storage and progress events to their dashboard handlers.
 func (r *Runner) processRecord(ctx context.Context, record *kgo.Record) error {
 	if record.Topic != uploadmsg.ProgressTopic {
 		errs := r.processMessage(ctx, record)
@@ -121,6 +124,7 @@ func (r *Runner) processRecord(ctx context.Context, record *kgo.Record) error {
 	return err
 }
 
+// processMessage handles the records bundled in a storage notification.
 func (r *Runner) processMessage(ctx context.Context, record *kgo.Record) []error {
 	var msg s3.Message
 
@@ -142,6 +146,7 @@ func (r *Runner) processMessage(ctx context.Context, record *kgo.Record) []error
 	return errs
 }
 
+// handleS3Record records a completed upload and schedules document ingestion.
 func (r *Runner) handleS3Record(ctx context.Context, s3Record s3.Record) error {
 	log := logger.FromContext(ctx)
 
@@ -170,6 +175,7 @@ func (r *Runner) handleS3Record(ctx context.Context, s3Record s3.Record) error {
 	return nil
 }
 
+// produceCompletedMsg publishes the upload event consumed by ingestion workers.
 func (r *Runner) produceCompletedMsg(ctx context.Context, id uuid.UUID) error {
 	event, err := json.Marshal(
 		uploadmsg.CompletedMessage{

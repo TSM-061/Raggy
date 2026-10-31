@@ -19,6 +19,7 @@ func NewPostgresRepo(pool *pgxpool.Pool) Repo {
 	return &PostgresRepo{pool: pool}
 }
 
+// Upsert records processing metadata when a document is first encountered.
 func (r *PostgresRepo) Upsert(ctx context.Context, upload *Upload) error {
 	query := `
 		INSERT INTO uploads (id, status, chunk_total)

@@ -21,6 +21,7 @@ func NewTokenVerifier(clock clock.Clock, pubKey ed25519.PublicKey) *TokenVerifie
 	}
 }
 
+// Verify checks an access token and returns its user claims.
 func (v *TokenVerifier) Verify(tokenStr string) (*UserClaims, error) {
 	claims := &UserClaims{}
 

@@ -11,6 +11,7 @@ import (
 
 var tracer = otel.Tracer("github.com/TSM-061/Raggy/shared/telemetry")
 
+// Middleware continues incoming trace context and traces the HTTP request.
 func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := otel.GetTextMapPropagator().Extract(

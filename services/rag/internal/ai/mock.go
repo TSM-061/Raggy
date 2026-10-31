@@ -29,6 +29,7 @@ func (m *MockAI) EmbedChunk(ctx context.Context, text string) ([]float32, error)
 // FakeEmbeddingDimensions matches the existing vector(1536) database schema.
 const FakeEmbeddingDimensions = 1536
 
+// Embed returns a deterministic placeholder vector for local pipeline development.
 func (*MockAI) Embed(ctx context.Context, tokens string) ([]float32, error) {
 	ctx, span := tracer.Start(ctx, "embeddings fake")
 	defer span.End()
@@ -42,6 +43,7 @@ func (*MockAI) Embed(ctx context.Context, tokens string) ([]float32, error) {
 	return vector, nil
 }
 
+// GenerateContent returns a sample answer linked to the supplied source context.
 func (*MockAI) GenerateContent(ctx context.Context, prompt string) (*rag.GeneratedAnswer, error) {
 	ctx, span := tracer.Start(ctx, "generation fake")
 	defer span.End()

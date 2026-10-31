@@ -49,6 +49,7 @@ func NewServer(
 	return server
 }
 
+// BuildEndpoints wires dashboard routes through authentication and request instrumentation.
 func (s *Server) BuildEndpoints(log *slog.Logger, auth *auth.Middleware) http.Handler {
 	mux := http.NewServeMux()
 

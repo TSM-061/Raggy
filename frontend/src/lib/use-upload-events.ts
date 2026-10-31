@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { DEMO_MODE } from "./demo-api";
 
+/** Keeps document queries in sync with the server’s progress notifications. */
 export function useUploadEvents(enabled: boolean) {
 	const client = useQueryClient();
 	const [connected, setConnected] = useState(false);

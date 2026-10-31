@@ -17,6 +17,7 @@ import {
 } from "#/lib/api";
 import { DEMO_MODE } from "#/lib/demo-api";
 
+/** Handles document selection and transfer through signed upload URLs. */
 export function UploadDialog({
 	open,
 	onOpenChange,

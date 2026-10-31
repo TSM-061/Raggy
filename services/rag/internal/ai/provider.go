@@ -19,6 +19,7 @@ type Client interface {
 	rag.Generator
 }
 
+// ValidateProvider checks the selected backend and its required credentials.
 func ValidateProvider(provider string, cfg *GeminiConfig) error {
 	switch provider {
 	case ProviderFake:
@@ -39,6 +40,7 @@ func WithFakeChunkDelay(delay time.Duration) Option {
 	return func(client *MockAI) { client.ChunkDelay = delay }
 }
 
+// NewClient selects the live or fake implementation for embedding and generation.
 func NewClient(ctx context.Context, provider string, cfg *GeminiConfig, options ...Option) (Client, error) {
 	if err := ValidateProvider(provider, cfg); err != nil {
 		return nil, err

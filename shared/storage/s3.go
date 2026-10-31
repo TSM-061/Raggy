@@ -47,6 +47,7 @@ type S3Bucket struct {
 	presignClient *s3.PresignClient
 }
 
+// NewS3Bucket configures storage access and upload signing for an S3-compatible bucket.
 func NewS3Bucket(
 	ctx context.Context,
 	cred *S3Credentials,
@@ -83,6 +84,7 @@ func NewS3Bucket(
 	}, nil
 }
 
+// Download reads the stored document identified by its upload ID.
 func (b *S3Bucket) Download(ctx context.Context, key uuid.UUID) ([]byte, error) {
 	_, span := tracer.Start(ctx, "s3.GetObject")
 	span.SetAttributes(
@@ -112,6 +114,7 @@ func (b *S3Bucket) Download(ctx context.Context, key uuid.UUID) ([]byte, error) 
 	return data, nil
 }
 
+// SignedPutURL authorizes a direct upload and returns the headers required by the signature.
 func (b *S3Bucket) SignedPutURL(ctx context.Context, key string) (*SignedUrl, error) {
 	input := &s3.PutObjectInput{
 		Bucket:   aws.String(b.config.Bucket),

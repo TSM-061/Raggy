@@ -27,6 +27,7 @@ type Section struct {
 	Content    string
 }
 
+// Parse extracts document metadata and section content from project-report Markdown.
 func Parse(ctx context.Context, data []byte) (*ProjectReport, error) {
 	markdown := goldmark.New(goldmark.WithExtensions(&frontmatter.Extender{}))
 	reader := text.NewReader(data)

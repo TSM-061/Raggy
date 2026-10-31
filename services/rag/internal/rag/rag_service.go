@@ -35,6 +35,7 @@ type RAG struct {
 	generator Generator
 }
 
+// New connects document storage with embedding and answer-generation providers.
 func New(
 	uploads upload.Repo,
 	chunks chunk.Repo,
@@ -58,6 +59,7 @@ type ChunkInformation struct {
 	ContentString string
 }
 
+// IngestChunk embeds and stores a document section for later retrieval.
 func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
 
 	log := logger.FromContext(ctx)
@@ -111,6 +113,7 @@ func (r *RAG) IngestChunk(ctx context.Context, info *ChunkInformation) error {
 	return nil
 }
 
+// ProcessedChunks counts the persisted embeddings for a document.
 func (r *RAG) ProcessedChunks(ctx context.Context, uploadID uuid.UUID) (int, error) {
 	return r.chunks.CountByUploadID(ctx, uploadID)
 }
@@ -120,6 +123,7 @@ type SearchQuery struct {
 	Limit int
 }
 
+// Search retrieves relevant sections and returns an answer with validated source references.
 func (r *RAG) Search(ctx context.Context, query *SearchQuery) (*SearchResult, error) {
 	log := logger.FromContext(ctx)
 

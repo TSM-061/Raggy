@@ -5,6 +5,7 @@ import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { api } from "#/lib/api";
 
+/** Signs in through the cookie-based authentication API. */
 export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState("");

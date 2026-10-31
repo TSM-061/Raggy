@@ -20,6 +20,7 @@ import {
 import type { Answer, Source } from "#/lib/api";
 import { DEMO_MODE } from "#/lib/demo-api";
 
+/** Displays an answer and lets readers inspect its cited source text. */
 export function AnswerPanel({
 	answer,
 	question,

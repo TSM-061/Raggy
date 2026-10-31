@@ -21,6 +21,7 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
+// WriteValidationDetails presents validation failures as a problem-details response.
 func WriteValidationDetails(ctx context.Context, w http.ResponseWriter, err error) {
 	log := logger.FromContext(ctx)
 

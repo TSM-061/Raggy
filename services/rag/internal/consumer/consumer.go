@@ -32,6 +32,7 @@ type Runner struct {
 
 var tracer = otel.Tracer("github.com/TSM-061/Raggy/rag/internal/consumer")
 
+// New configures a chunk consumer that publishes persisted processing progress.
 func New(config *Config, tracker *tracker) (*Runner, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(config.SeedBrokers...),
@@ -55,6 +56,7 @@ func New(config *Config, tracker *tracker) (*Runner, error) {
 	}, nil
 }
 
+// Start processes chunk events and acknowledges completed work until shutdown.
 func (c *Runner) Start(ctx context.Context) {
 	defer c.client.AllowRebalance()
 	log := logger.FromContext(ctx)
@@ -82,6 +84,7 @@ func (c *Runner) Start(ctx context.Context) {
 	}
 }
 
+// ProcessMessage dispatches supported chunk events to the ingestion handler.
 func (c *Runner) ProcessMessage(ctx context.Context, record *kgo.Record) error {
 	log := logger.FromContext(ctx)
 
@@ -106,6 +109,7 @@ func (c *Runner) ProcessMessage(ctx context.Context, record *kgo.Record) error {
 	return nil
 }
 
+// HandleChunkStream persists a chunk and publishes its document’s completion count.
 func (c *Runner) HandleChunkStream(ctx context.Context, msg chunk.Message) error {
 	var payload chunk.StreamPayload
 

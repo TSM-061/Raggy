@@ -63,6 +63,7 @@ function Brand({ inverse = false }: { inverse?: boolean }) {
 	);
 }
 
+/** Restores the session and connects document data to the workspace. */
 export function WorkspaceApp() {
 	const [mounted, setMounted] = useState(false);
 	const [signedOut, setSignedOut] = useState(false);
@@ -466,6 +467,7 @@ function NavButton({
 	);
 }
 
+/** Submits document questions and presents answers with their source references. */
 function AskWorkspace({
 	total,
 	uploads,

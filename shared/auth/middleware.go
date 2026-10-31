@@ -29,6 +29,7 @@ func (m *Middleware) WrapFn(nextFunc http.HandlerFunc) http.Handler {
 	return m.Wrap(handler)
 }
 
+// Wrap authenticates the session cookie and adds the user identity to the request context.
 func (m *Middleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -74,6 +75,7 @@ func GetUserID(ctx context.Context) (uuid.UUID, bool) {
 	return userID, ok
 }
 
+// MustGetUserID retrieves the authenticated user or panics when auth middleware was omitted.
 func MustGetUserID(ctx context.Context) uuid.UUID {
 	userID, ok := GetUserID(ctx)
 	if !ok {

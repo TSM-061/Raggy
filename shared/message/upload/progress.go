@@ -14,6 +14,7 @@ type ProgressMessage struct {
 	ChunksProcessed int         `json:"chunksProcessed"`
 }
 
+// Validate checks that a progress snapshot has a supported type and consistent counts.
 func (m ProgressMessage) Validate() error {
 	if m.Type != Progress || m.ChunkTotal < 0 || m.ChunksProcessed < 0 || m.ChunksProcessed > m.ChunkTotal {
 		return fmt.Errorf("invalid upload progress counts or event type")

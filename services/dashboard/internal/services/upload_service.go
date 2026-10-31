@@ -59,6 +59,7 @@ type CreateUploadResult struct {
 	Upload        *upload.Upload
 }
 
+// CreateUpload records document metadata and authorizes a direct storage upload.
 func (s *Upload) CreateUpload(
 	ctx context.Context,
 	req *CreateUploadCommand,
@@ -149,6 +150,7 @@ type ListUploadsResult struct {
 	Total      int64
 }
 
+// ListUploads validates pagination and returns a page of document metadata.
 func (s *Upload) ListUploads(
 	ctx context.Context,
 	query *ListUploadsQuery,
@@ -215,6 +217,7 @@ type DeleteUploadCommand struct {
 	UploadID uuid.UUID `validate:"required"`
 }
 
+// DeleteUpload removes the dashboard record for an upload.
 func (s *Upload) DeleteUpload(ctx context.Context, req *DeleteUploadCommand) error {
 	if req == nil {
 		return fmt.Errorf("%w: request is required", serviceerr.InvalidInput)
@@ -227,6 +230,7 @@ func (s *Upload) DeleteUpload(ctx context.Context, req *DeleteUploadCommand) err
 	return s.uploads.DeleteByID(ctx, req.UploadID)
 }
 
+// ApplyProgress validates and persists a document’s chunk-completion snapshot.
 func (s *Upload) ApplyProgress(ctx context.Context, id uuid.UUID, total, processed int) error {
 	if id == uuid.Nil || total < 0 || processed < 0 || processed > total {
 		return serviceerr.InvalidInput

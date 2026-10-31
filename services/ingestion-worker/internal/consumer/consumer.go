@@ -37,6 +37,7 @@ type Runner struct {
 	config  *Config
 }
 
+// New configures an ingestion consumer backed by document storage.
 func New(cfg *Config, uploads Downloader) (*Runner, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(cfg.SeedBrokers...),
@@ -60,6 +61,7 @@ func New(cfg *Config, uploads Downloader) (*Runner, error) {
 	}, nil
 }
 
+// Start handles uploaded documents and acknowledges completed ingestion work.
 func (c *Runner) Start(ctx context.Context) {
 	defer c.client.AllowRebalance()
 	log := logger.FromContext(ctx)
@@ -96,6 +98,7 @@ func (c *Runner) Start(ctx context.Context) {
 	}
 }
 
+// handleUploadMessage dispatches supported upload events for ingestion.
 func (c *Runner) handleUploadMessage(ctx context.Context, record *kgo.Record) error {
 	var msg upload.CompletedMessage
 	if err := json.Unmarshal(record.Value, &msg); err != nil {
@@ -107,6 +110,7 @@ func (c *Runner) handleUploadMessage(ctx context.Context, record *kgo.Record) er
 	return c.handleUploadCompleted(ctx, msg)
 }
 
+// handleUploadCompleted downloads a document and selects its parser.
 func (c *Runner) handleUploadCompleted(
 	ctx context.Context, msg upload.CompletedMessage) error {
 	log := logger.FromContext(ctx)
@@ -140,6 +144,7 @@ func (c *Runner) handleUploadCompleted(
 	}
 }
 
+// handleProjectReportMarkdown publishes parsed document sections and their expected count.
 func (c *Runner) handleProjectReportMarkdown(ctx context.Context, uploadMsg upload.CompletedMessage, data []byte) error {
 	log := logger.FromContext(ctx)
 

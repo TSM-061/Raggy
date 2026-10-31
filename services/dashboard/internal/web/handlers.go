@@ -65,6 +65,7 @@ func toUploadResponse(u *upload.Upload) uploadResponse {
 	}
 }
 
+// HandleUpload creates a document record and returns signed upload details.
 func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	uploaderID := auth.MustGetUserID(r.Context())
 
@@ -105,6 +106,7 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HandleListUploads returns paginated document metadata and processing progress.
 func (s *Server) HandleListUploads(w http.ResponseWriter, r *http.Request) {
 	page, err := parseOptionalIntQuery(r, "page")
 	if err != nil {

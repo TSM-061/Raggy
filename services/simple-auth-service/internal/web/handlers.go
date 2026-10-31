@@ -71,6 +71,7 @@ type signinRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
+// HandleSignin authenticates credentials and establishes session cookies.
 func (s *Server) HandleSignin(w http.ResponseWriter, r *http.Request) {
 	var body signinRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -97,6 +98,7 @@ func (s *Server) HandleSignin(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandleRefresh renews the session using the refresh-token cookie.
 func (s *Server) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(RefreshTokenCookieName)
 	if err != nil {
@@ -114,6 +116,7 @@ func (s *Server) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandleSignout revokes the session and clears its cookies.
 func (s *Server) HandleSignout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(RefreshTokenCookieName)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 )
 
+// main prints an encoded key pair for access-token signing and verification.
 func main() {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 

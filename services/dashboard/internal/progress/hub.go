@@ -16,6 +16,7 @@ type Hub struct {
 }
 
 func NewHub() *Hub { return &Hub{clients: make(map[chan struct{}]struct{})} }
+// Subscribe registers a progress listener and returns its cleanup function.
 func (h *Hub) Subscribe() (<-chan struct{}, func()) {
 	ch := make(chan struct{}, 1)
 	h.mu.Lock()
@@ -23,6 +24,7 @@ func (h *Hub) Subscribe() (<-chan struct{}, func()) {
 	h.mu.Unlock()
 	return ch, func() { h.mu.Lock(); delete(h.clients, ch); h.mu.Unlock() }
 }
+// Broadcast signals connected listeners that their document data may have changed.
 func (h *Hub) Broadcast() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -33,6 +35,7 @@ func (h *Hub) Broadcast() {
 		}
 	}
 }
+// Run forwards committed database notifications to local progress listeners.
 func (h *Hub) Run(ctx context.Context, config *pgx.ConnConfig) {
 	for ctx.Err() == nil {
 		conn, err := pgx.ConnectConfig(ctx, config.Copy())

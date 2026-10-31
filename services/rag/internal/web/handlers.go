@@ -12,6 +12,7 @@ import (
 	"github.com/TSM-061/Raggy/shared/serviceerr"
 )
 
+// HandleQuery returns a grounded answer or an insufficient-evidence result.
 func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.FromContext(ctx)

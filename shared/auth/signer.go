@@ -27,6 +27,7 @@ func NewTokenSigner(config *TokenSignerConfig, clk clock.Clock) *TokenSigner {
 	}
 }
 
+// Sign creates an expiring access token for a user.
 func (s *TokenSigner) Sign(userID uuid.UUID) (string, error) {
 	iat := s.clock.Now().UTC().Truncate(time.Second)
 	exp := iat.Add(s.config.TTL)

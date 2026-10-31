@@ -13,6 +13,7 @@ var loggerKey contextKey = contextKey{}
 
 var defaultLogger = New(slog.LevelInfo)
 
+// New creates a structured logger enriched with request context.
 func New(level slog.Level) *slog.Logger {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: level,
@@ -27,6 +28,7 @@ func ToContext(ctx context.Context, logger *slog.Logger) context.Context {
 	return context.WithValue(ctx, loggerKey, logger)
 }
 
+// FromContext returns the request logger or the application default.
 func FromContext(ctx context.Context) *slog.Logger {
 	if logger, ok := ctx.Value(loggerKey).(*slog.Logger); ok {
 		return logger
@@ -35,6 +37,7 @@ func FromContext(ctx context.Context) *slog.Logger {
 	return slog.Default()
 }
 
+// Wrap makes the supplied logger available to downstream request handlers.
 func Wrap(next http.Handler, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

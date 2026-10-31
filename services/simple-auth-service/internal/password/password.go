@@ -37,6 +37,7 @@ const (
 	maxAllowedTime    = 10
 )
 
+// Hash creates a salted password hash using the configured pepper.
 func (h *Argon2Hasher) Hash(plaintext string) string {
 	salt := make([]byte, 16)
 	rand.Read(salt)
@@ -58,6 +59,7 @@ func (h *Argon2Hasher) toPHCString(salt []byte, hash []byte) string {
 		argon2.Version, h.config.Memory, h.config.Time, h.config.Threads, b64Salt, b64Hash)
 }
 
+// Verify checks a password against its stored encoded hash.
 func (h *Argon2Hasher) Verify(plaintext, encodedHash string) (bool, error) {
 	// $argon2id$v=19$m=65536,t=3,p=2$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWJTmaaJObG
 	// <empty (leading $)>:<algorithm>:<version>:<parameters>:<salt>:<hash>

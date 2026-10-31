@@ -32,6 +32,7 @@ func Extract(ctx context.Context, record *kgo.Record) context.Context {
 	return ctx
 }
 
+// MetadataFromContext retrieves Kafka record details attached during message handling.
 func MetadataFromContext(ctx context.Context) (*KafkaMeta, bool) {
 	km, ok := ctx.Value(kafkaFields).(*KafkaMeta)
 	return km, ok
@@ -43,6 +44,7 @@ func NewKafkaHook() KafkaClientHook {
 	return KafkaClientHook{}
 }
 
+// OnProduceRecordBuffered carries the producer’s trace context into message headers.
 func (h KafkaClientHook) OnProduceRecordBuffered(r *kgo.Record) {
 	if r.Context == nil {
 		return

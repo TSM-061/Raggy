@@ -11,6 +11,7 @@ import (
 	"gocloud.dev/blob/s3blob"
 )
 
+// OpenS3Bucket opens an S3-compatible bucket through the portable blob API.
 func OpenS3Bucket(ctx context.Context, cred *S3Credentials, cfg *S3Config) (*blob.Bucket, error) {
 	credentialsProvider := awscredentials.NewStaticCredentialsProvider(
 		cred.AccessKeyID,

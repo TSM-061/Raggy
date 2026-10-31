@@ -20,6 +20,7 @@ func NewPostgresRepo(pool *pgxpool.Pool) Repo {
 	return &PostgresRepo{pool: pool}
 }
 
+// Create stores an embedded chunk without duplicating its document position on replay.
 func (r *PostgresRepo) Create(ctx context.Context, chunk *Chunk) error {
 	query := `
 		INSERT INTO chunks (upload_id, chunk_index, content, embedding)
@@ -54,6 +55,7 @@ func (r *PostgresRepo) CountByUploadID(ctx context.Context, id uuid.UUID) (int, 
 	return count, err
 }
 
+// Search retrieves stored chunks closest to the query embedding.
 func (r *PostgresRepo) Search(ctx context.Context, queryVector []float32, limit int) ([]Chunk, error) {
 	query := `
 		SELECT

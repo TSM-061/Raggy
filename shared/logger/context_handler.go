@@ -28,6 +28,7 @@ func (h *ContextHandler) WithGroup(name string) slog.Handler {
 	return &ContextHandler{next: h.next.WithGroup(name)}
 }
 
+// Handle enriches log records with available tracing and message context.
 func (h *ContextHandler) Handle(ctx context.Context, r slog.Record) error {
 	if ctx == nil {
 		return h.next.Handle(ctx, r)

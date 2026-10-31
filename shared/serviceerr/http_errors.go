@@ -12,6 +12,7 @@ type HTTPError struct {
 
 // TODO fix this initial implementation
 
+// MapToHTTPError translates service errors into HTTP response details.
 func MapToHTTPError(err error) HTTPError {
 	switch {
 	case errors.Is(err, InvalidInput):

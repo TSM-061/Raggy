@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// main starts the authentication API and its supporting dependencies.
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {

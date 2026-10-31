@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// main provisions a user account and prints its generated credentials.
 func main() {
 	args := os.Args[1:]
 

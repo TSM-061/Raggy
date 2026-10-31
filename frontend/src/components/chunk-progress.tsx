@@ -1,5 +1,6 @@
 import type { Upload } from "#/lib/api";
 
+/** Displays completed chunks when the expected document total is known. */
 export function ChunkProgress({ upload }: { upload: Upload }) {
 	const total = upload.chunkTotal;
 	if (total == null)

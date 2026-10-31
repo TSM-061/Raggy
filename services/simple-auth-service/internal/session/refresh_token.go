@@ -9,11 +9,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// encodeRefreshToken combines a session selector and secret into the client token.
 func encodeRefreshToken(selector uuid.UUID, validator []byte) string {
 	return base64.RawURLEncoding.EncodeToString(selector[:]) + "." +
 		base64.RawURLEncoding.EncodeToString(validator)
 }
 
+// parseRefreshToken separates the session selector from the token’s secret.
 func parseRefreshToken(token string) (uuid.UUID, []byte, error) {
 	parts := strings.Split(token, ".")
 

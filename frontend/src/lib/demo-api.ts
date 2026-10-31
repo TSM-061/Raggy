@@ -42,6 +42,7 @@ const source: Source = {
 	text: "- Support heavy track-mounted mobile cranes (up to 200-tonne operating weight) on the wharf deck.\n- Interface with bulk material barges (90m in length and up to 5,000 deadweight tonnage).\n- Maintain structural integrity under severe cyclone conditions (Category 5 wind and wave loading).\n- Utilize a pre-cast concrete methodology to minimize over-water formwork and concrete pouring.",
 };
 
+/** Selects a canned answer and source references for the interface preview. */
 export function sampleAnswer(question: string): Answer {
 	const q = question.toLowerCase();
 	if (q === SAMPLE_QUESTION.toLowerCase()) {
@@ -125,6 +126,7 @@ export async function demoApi<T>(path: string, init?: RequestInit): Promise<T> {
 	throw new Error("This action is not available in the sample preview.");
 }
 
+/** Marks a simulated upload complete in the preview’s document list. */
 export function completeDemoUpload(id: string) {
 	const document = documents.find((item) => item.id === id);
 	if (document) document.status = "uploaded";

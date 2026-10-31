@@ -40,6 +40,7 @@ export class SessionExpired extends Error {
 }
 
 let refreshRequest: Promise<void> | undefined;
+/** Renews the browser session while sharing concurrent refresh requests. */
 async function refreshSession() {
 	if (!refreshRequest) {
 		refreshRequest = fetch("/api/auth/refresh", {
@@ -57,6 +58,7 @@ async function refreshSession() {
 	return refreshRequest;
 }
 
+/** Calls the application API and refreshes an expired session before retrying. */
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 	if (DEMO_MODE) return demoApi<T>(path, init);
 	const options = { ...init, credentials: "same-origin" as const };
@@ -84,6 +86,7 @@ export function listUploads(page: number, signal?: AbortSignal) {
 	return api<UploadPage>(`/api/uploads?page=${page}&pageSize=20`, { signal });
 }
 
+/** Creates document metadata and requests signed storage-upload details. */
 export function stageUpload(file: File) {
 	return api<StagedUpload>("/api/uploads", {
 		method: "POST",
@@ -97,6 +100,7 @@ export function stageUpload(file: File) {
 	});
 }
 
+/** Transfers a selected file using its signed upload authorization. */
 export async function putUpload(staged: StagedUpload, file: File) {
 	if (DEMO_MODE) {
 		completeDemoUpload(staged.upload.id);
@@ -115,6 +119,7 @@ export async function putUpload(staged: StagedUpload, file: File) {
 		);
 }
 
+/** Queries the workspace for an answer and its supporting sources. */
 export function askQuestion(question: string, signal: AbortSignal) {
 	return api<Answer>(
 		`/api/search?${new URLSearchParams({ q: question, limit: "5" })}`,

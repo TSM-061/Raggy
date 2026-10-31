@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// main starts chunk processing and the query API with the configured AI provider.
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {

@@ -16,6 +16,7 @@ type Helper struct {
 	IsProd bool
 }
 
+// NewHelper provides typed environment lookups for the selected runtime mode.
 func NewHelper(lookup LookupFunc) *Helper {
 	raw, ok := lookup("ENV")
 

@@ -9,6 +9,7 @@ type Content struct {
 	Text       string `json:"text"`
 }
 
+// ContentAsString combines section text and document metadata for embedding.
 func ContentAsString(context Content) string {
 	return fmt.Sprintf(
 		"Document: %s\nSubject: %s\nSection: %s\nContent: %s",

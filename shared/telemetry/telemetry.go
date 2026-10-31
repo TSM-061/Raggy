@@ -27,6 +27,7 @@ func initTextMapPropagator() {
 	)
 }
 
+// InitTracerProvider configures trace propagation and export for a service.
 func InitTracerProvider(ctx context.Context, serviceName string, cfg *Config) (*trace.TracerProvider, error) {
 	exporterOptions := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(cfg.CollectorEndpoint),

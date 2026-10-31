@@ -46,6 +46,7 @@ func NewGeminiClient(ctx context.Context, cfg *GeminiConfig) (*GeminiClient, err
 	}, nil
 }
 
+// Embed converts text into a vector using the configured Gemini model.
 func (g *GeminiClient) Embed(ctx context.Context, tokens string) ([]float32, error) {
 	contents := []*genai.Content{
 		genai.NewContentFromText(tokens, genai.RoleUser),
@@ -72,6 +73,7 @@ func (g *GeminiClient) Embed(ctx context.Context, tokens string) ([]float32, err
 	return result.Embeddings[0].Values, nil
 }
 
+// GenerateContent requests and decodes a structured answer from Gemini.
 func (g *GeminiClient) GenerateContent(ctx context.Context, prompt string) (*rag.GeneratedAnswer, error) {
 	result, err := g.client.Models.GenerateContent(
 		ctx,
@@ -95,6 +97,7 @@ func (g *GeminiClient) GenerateContent(ctx context.Context, prompt string) (*rag
 	return rag.ParseGeneratedAnswer(result.Text())
 }
 
+// answerSchema defines the generated answer shape expected by citation validation.
 func answerSchema() *genai.Schema {
 	return &genai.Schema{Type: genai.TypeObject, Required: []string{"status", "answer", "references"}, Properties: map[string]*genai.Schema{
 		"status":     {Type: genai.TypeString, Enum: []string{"answered", "insufficient_evidence"}},

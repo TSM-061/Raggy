@@ -16,6 +16,7 @@ type tracker struct{ rag chunkProcessor }
 
 func NewJobTracker(service chunkProcessor) *tracker { return &tracker{rag: service} }
 
+// TrackAndProcessChunk ingests a chunk and builds progress from persisted embeddings.
 func (t *tracker) TrackAndProcessChunk(ctx context.Context, info *rag.ChunkInformation) (*upload.ProgressMessage, error) {
 	ctx, span := tracer.Start(ctx, "Chunk.Embed")
 	defer span.End()

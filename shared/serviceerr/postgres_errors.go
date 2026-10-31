@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// WrapPostgresError classifies database errors for consistent service-level handling.
 func WrapPostgresError(err error) error {
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if !ok {
