@@ -1,13 +1,6 @@
 # Raggy - A RAG Pipeline
 
-Raggy is a prototype RAG (Retrieval-Augmented Generation) pipeline built to explore distributed system design. The project applies enterprise-grade principles, using a microservice architecture to isolate core domains and leveraging Kafka to handle heavy document processing workloads asynchronously.
-
-> [!NOTE]
-> This project is currently a Work in Progress. Core functionality is implemented, additional features are still being integrated.
-
-The backend query API returns answers with validated source references or an explicit insufficient-evidence result. See the [query API documentation](docs/rag-query-api.md) for response examples, configuration, and verification steps.
-
-For local pipeline development without a Gemini key or external AI calls, set `AI_PROVIDER=fake` on the RAG service. See [fake AI provider setup](docs/fake-ai-provider.md).
+Raggy is a prototype RAG (Retrieval-Augmented Generation) pipeline built to explore distributed system design. It uses separate services for document processing, embedding generation, and retrieval-based responses.
 
 <br>
 
