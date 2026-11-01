@@ -4,9 +4,11 @@ Raggy is a prototype RAG (Retrieval-Augmented Generation) pipeline built to expl
 
 The backend query API returns answers with validated source references or an explicit insufficient-evidence result.
 
-For local pipeline development without a Gemini key or external AI calls, set `AI_PROVIDER=fake` on the RAG service.
-
 Document processing uses bounded, named retry policies and reports terminal failures with partial progress in the dashboard.
+
+**Local Development**
+
+For local pipeline development without a Gemini key or external AI calls, set `AI_PROVIDER=fake` on the RAG service.
 
 <br>
 
