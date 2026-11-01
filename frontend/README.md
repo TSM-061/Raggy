@@ -10,7 +10,7 @@ A responsive React interface built with TanStack Start, Tailwind CSS, and shadcn
 - Questions across the workspace, cancellable requests, explicit insufficient-evidence results, and source excerpts opened from inline citations.
 - Responsive layouts, keyboard navigation, accessible dialog primitives, and loading, empty, and error states.
 
-The dashboard records expected and completed chunks and marks a document ready when all expected embeddings have been persisted. Existing documents without completion events show an unknown chunk total. See [chunk progress](../docs/chunk-progress.md) for event delivery, migrations, and deployment details. The UI does not add document-level query filters or deletion controls.
+The dashboard records expected and completed chunks and marks a document ready when all expected embeddings have been persisted. Existing documents without completion events show an unknown chunk total. The UI does not add document-level query filters or deletion controls.
 
 ## Run locally
 
@@ -30,7 +30,7 @@ For the existing Compose stack, use its nginx entrypoint. The frontend honors th
 
 The signed upload URL must be reachable from the user's browser, and storage must allow browser PUT requests and the returned signed headers through CORS. The UI sends those headers exactly as returned and omits session cookies on storage requests. Configure CORS for the actual UI origin when deploying; no storage permissions are changed by this frontend.
 
-Use an existing provisioned account. The UI does not include registration. Question answering requires the citation-enabled backend, valid Gemini configuration, and real document embeddings; see [the query API documentation](../docs/rag-query-api.md).
+Use an existing provisioned account. The UI does not include registration. Question answering requires the citation-enabled backend, valid Gemini configuration, and real document embeddings.
 
 ## Check and build
 
