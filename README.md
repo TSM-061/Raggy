@@ -2,6 +2,12 @@
 
 Raggy is a prototype RAG (Retrieval-Augmented Generation) pipeline built to explore distributed system design. It uses separate services for document processing, embedding generation, and retrieval-based responses.
 
+The backend query API returns answers with validated source references or an explicit insufficient-evidence result.
+
+For local pipeline development without a Gemini key or external AI calls, set `AI_PROVIDER=fake` on the RAG service.
+
+Document processing uses bounded, named retry policies and reports terminal failures with partial progress in the dashboard.
+
 <br>
 
 ![Raggy High Level Service Map](.assets/high-level-infra-overview.png)
